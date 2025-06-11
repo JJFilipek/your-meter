@@ -1,0 +1,47 @@
+.group-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    z-index: 1050;
+    padding: 0.5rem 1rem;
+    background-color: var(--brand, #1e3050);
+    color: white;
+    transition: bottom 0.2s ease-in-out;
+}
+
+.group-bar-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.group-badge {
+    background-color: var(--brand, #1e3050);
+    color: white;
+    padding: 0.4em 1em;
+    border-radius: 1em;
+    font-weight: bold;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25em;
+    position: relative;
+}
+
+    .group-badge.active {
+        background-color: white;
+        color: var(--brand, #1e3050);
+        border: 2px solid var(--brand, #1e3050);
+    }
+
+    .group-badge .dots {
+        font-weight: bold;
+        color: #888;
+        cursor: pointer;
+        margin-left: 0.3rem;
+        font-size: 1.2em;
+        line-height: 1;
+        user-select: none;
+    }

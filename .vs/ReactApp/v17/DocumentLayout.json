@@ -1,0 +1,157 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|c:\\users\\jakub\\desktop\\studia\\5 semestr\\\u0107wiczenia\\tworzenie interfejs\u00F3w u\u017Cytkownika\\twoj_licznik_1.2\\reactapp.client\\src\\infrastructure\\meters\\meteritem.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|solutionrelative:reactapp.client\\src\\infrastructure\\meters\\meteritem.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|c:\\users\\jakub\\desktop\\studia\\5 semestr\\\u0107wiczenia\\tworzenie interfejs\u00F3w u\u017Cytkownika\\twoj_licznik_1.2\\reactapp.client\\src\\charts\\chartspage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|solutionrelative:reactapp.client\\src\\charts\\chartspage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|c:\\users\\jakub\\desktop\\studia\\5 semestr\\\u0107wiczenia\\tworzenie interfejs\u00F3w u\u017Cytkownika\\twoj_licznik_1.2\\reactapp.client\\src\\map\\mappage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|solutionrelative:reactapp.client\\src\\map\\mappage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|c:\\users\\jakub\\desktop\\studia\\5 semestr\\\u0107wiczenia\\tworzenie interfejs\u00F3w u\u017Cytkownika\\twoj_licznik_1.2\\reactapp.client\\src\\home\\homepage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|solutionrelative:reactapp.client\\src\\home\\homepage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|c:\\users\\jakub\\desktop\\studia\\5 semestr\\\u0107wiczenia\\tworzenie interfejs\u00F3w u\u017Cytkownika\\twoj_licznik_1.2\\reactapp.client\\src\\infrastructure\\meters\\meterlistpage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|solutionrelative:reactapp.client\\src\\infrastructure\\meters\\meterlistpage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|c:\\users\\jakub\\desktop\\studia\\5 semestr\\\u0107wiczenia\\tworzenie interfejs\u00F3w u\u017Cytkownika\\twoj_licznik_1.2\\reactapp.client\\src\\readings\\meterreadingspage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|solutionrelative:reactapp.client\\src\\readings\\meterreadingspage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|c:\\users\\jakub\\desktop\\studia\\5 semestr\\\u0107wiczenia\\tworzenie interfejs\u00F3w u\u017Cytkownika\\twoj_licznik_1.2\\reactapp.client\\src\\infrastructure\\electricitygenerator\\electricitygeneratorpage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|solutionrelative:reactapp.client\\src\\infrastructure\\electricitygenerator\\electricitygeneratorpage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|c:\\users\\jakub\\desktop\\studia\\5 semestr\\\u0107wiczenia\\tworzenie interfejs\u00F3w u\u017Cytkownika\\twoj_licznik_1.2\\reactapp.client\\src\\infrastructure\\pmax\\pmaxpage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}",
+      "RelativeMoniker": "D:0:0:{F16E5317-484A-16D2-47D2-02D1DC85B063}|reactapp.client\\reactapp.client.esproj|solutionrelative:reactapp.client\\src\\infrastructure\\pmax\\pmaxpage.tsx||{0F2454B1-A556-402D-A7D0-1FDE7F99DEE0}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 256,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 2,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "MapPage.tsx",
+              "DocumentMoniker": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\map\\MapPage.tsx",
+              "RelativeDocumentMoniker": "reactapp.client\\src\\map\\MapPage.tsx",
+              "ToolTip": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\map\\MapPage.tsx",
+              "RelativeToolTip": "reactapp.client\\src\\map\\MapPage.tsx",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAABUAAAAoAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-05-31T14:46:09.191Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "MeterItem.tsx",
+              "DocumentMoniker": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\infrastructure\\meters\\MeterItem.tsx",
+              "RelativeDocumentMoniker": "reactapp.client\\src\\infrastructure\\meters\\MeterItem.tsx",
+              "ToolTip": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\infrastructure\\meters\\MeterItem.tsx",
+              "RelativeToolTip": "reactapp.client\\src\\infrastructure\\meters\\MeterItem.tsx",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAA4AAAABAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-05-31T14:39:02.913Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 3,
+              "Title": "HomePage.tsx",
+              "DocumentMoniker": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\home\\HomePage.tsx",
+              "RelativeDocumentMoniker": "reactapp.client\\src\\home\\HomePage.tsx",
+              "ToolTip": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\home\\HomePage.tsx",
+              "RelativeToolTip": "reactapp.client\\src\\home\\HomePage.tsx",
+              "ViewState": "AgIAAHEAAAAAAAAAAAAQwIQAAAAiAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-05-31T14:34:42.573Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
+              "Title": "MeterListPage.tsx",
+              "DocumentMoniker": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\infrastructure\\meters\\MeterListPage.tsx",
+              "RelativeDocumentMoniker": "reactapp.client\\src\\infrastructure\\meters\\MeterListPage.tsx",
+              "ToolTip": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\infrastructure\\meters\\MeterListPage.tsx",
+              "RelativeToolTip": "reactapp.client\\src\\infrastructure\\meters\\MeterListPage.tsx",
+              "ViewState": "AgIAAAcAAAAAAAAAAAAiwCcAAAACAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-05-31T14:23:30.048Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 7,
+              "Title": "PmaxPage.tsx",
+              "DocumentMoniker": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\infrastructure\\pmax\\PmaxPage.tsx",
+              "RelativeDocumentMoniker": "reactapp.client\\src\\infrastructure\\pmax\\PmaxPage.tsx",
+              "ToolTip": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\infrastructure\\pmax\\PmaxPage.tsx",
+              "RelativeToolTip": "reactapp.client\\src\\infrastructure\\pmax\\PmaxPage.tsx",
+              "ViewState": "AgIAAJ4AAAAAAAAAAAAQwMoAAAAeAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-05-30T23:45:16.051Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 6,
+              "Title": "ElectricityGeneratorPage.tsx",
+              "DocumentMoniker": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\infrastructure\\electricityGenerator\\ElectricityGeneratorPage.tsx",
+              "RelativeDocumentMoniker": "reactapp.client\\src\\infrastructure\\electricityGenerator\\ElectricityGeneratorPage.tsx",
+              "ToolTip": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\infrastructure\\electricityGenerator\\ElectricityGeneratorPage.tsx",
+              "RelativeToolTip": "reactapp.client\\src\\infrastructure\\electricityGenerator\\ElectricityGeneratorPage.tsx",
+              "ViewState": "AgIAAHwAAAAAAAAAAAAkwJAAAAAVAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-05-30T23:44:49.676Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "ChartsPage.tsx",
+              "DocumentMoniker": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\charts\\ChartsPage.tsx",
+              "RelativeDocumentMoniker": "reactapp.client\\src\\charts\\ChartsPage.tsx",
+              "ToolTip": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\charts\\ChartsPage.tsx",
+              "RelativeToolTip": "reactapp.client\\src\\charts\\ChartsPage.tsx",
+              "ViewState": "AgIAALAAAAAAAAAAAAASwMkAAABSAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-05-30T23:44:43.908Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 5,
+              "Title": "MeterReadingsPage.tsx",
+              "DocumentMoniker": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\readings\\MeterReadingsPage.tsx",
+              "RelativeDocumentMoniker": "reactapp.client\\src\\readings\\MeterReadingsPage.tsx",
+              "ToolTip": "C:\\Users\\jakub\\Desktop\\Studia\\5 semestr\\\u0107wiczenia\\Tworzenie interfejs\u00F3w u\u017Cytkownika\\Twoj_Licznik_1.2\\reactapp.client\\src\\readings\\MeterReadingsPage.tsx",
+              "RelativeToolTip": "reactapp.client\\src\\readings\\MeterReadingsPage.tsx",
+              "ViewState": "AgIAADYAAAAAAAAAAAAwwE0AAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.003213|",
+              "WhenOpened": "2025-05-30T23:37:29.162Z"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
