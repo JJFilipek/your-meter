@@ -26,13 +26,9 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
         <AuthProvider>
-            <BrowserRouter>
+            <BrowserRouter basename="/Your-Meter">
                 <Routes>
                     <Route path="/" element={<Navigate to="/Your-Meter" replace />} />
-
-                    <Route path="/Your-Meter" element={<RequireAuth><Layout /></RequireAuth>}>
-                        <Route index element={<HomePage />} />
-                    </Route>
 
                     <Route path="/login" element={<LoginPage />} />
 

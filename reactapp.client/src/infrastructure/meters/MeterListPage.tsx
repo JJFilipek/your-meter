@@ -2,6 +2,7 @@ import { Container, Table, Breadcrumb, Button, Modal, Form, Row, Col } from 'rea
 import { useMemo, useState, useEffect } from 'react'
 import { Meter } from '../../types/infrastructure/meter'
 import { MeterFilters } from './MeterFilters'
+import { MeterItem } from './MeterItem'
 import { meterList } from '../../data/meters'
 import * as Fa from "react-icons/fa"
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
@@ -137,22 +138,11 @@ export const Meters = () => {
                 </thead>
                 <tbody>
                     {pagedMeters.map((meter, index) => (
-                        <tr key={index}>
-                            <td>{meter.serialNo}</td>
-                            <td>{meter.name}</td>
-                            <td>{meter.model}</td>
-                            <td>{meter.firmware}</td>
-                            <td>{meter.tariff}</td>
-                            <td>{meter.profile}</td>
-                            <td>
-                                <span
-                                    className="status-badge"
-                                    style={{ background: statusColors[meter.status] ?? '#ccc' }}
-                                >
-                                    {meter.status}
-                                </span>
-                            </td>
-                        </tr>
+                        <MeterItem 
+                            key={index} 
+                            meter={meter} 
+                            statusColors={statusColors} 
+                        />
                     ))}
                 </tbody>
             </Table>

@@ -12,11 +12,20 @@
     <PackageJsonScriptsPreview Condition="$(PackageJsonScriptsPreview) == ''">vite preview</PackageJsonScriptsPreview>
     <PackageJsonScriptsPredeploy Condition="$(PackageJsonScriptsPredeploy) == ''">npm run build</PackageJsonScriptsPredeploy>
     <PackageJsonScriptsDeploy Condition="$(PackageJsonScriptsDeploy) == ''">gh-pages -d dist</PackageJsonScriptsDeploy>
-    <PackageJsonDependenciesReact Condition="$(PackageJsonDependenciesReact) == ''">^19.0.0</PackageJsonDependenciesReact>
+    <PackageJsonDependenciesTypesYup Condition="$(PackageJsonDependenciesTypesYup) == ''">^0.29.14</PackageJsonDependenciesTypesYup>
+    <PackageJsonDependenciesZxcvbnTsCore Condition="$(PackageJsonDependenciesZxcvbnTsCore) == ''">^3.0.4</PackageJsonDependenciesZxcvbnTsCore>
+    <PackageJsonDependenciesZxcvbnTsLanguageCommon Condition="$(PackageJsonDependenciesZxcvbnTsLanguageCommon) == ''">^3.0.4</PackageJsonDependenciesZxcvbnTsLanguageCommon>
+    <PackageJsonDependenciesZxcvbnTsLanguagePl Condition="$(PackageJsonDependenciesZxcvbnTsLanguagePl) == ''">^3.0.2</PackageJsonDependenciesZxcvbnTsLanguagePl>
+    <PackageJsonDependenciesFormik Condition="$(PackageJsonDependenciesFormik) == ''">^2.4.6</PackageJsonDependenciesFormik>
+    <PackageJsonDependenciesLeaflet Condition="$(PackageJsonDependenciesLeaflet) == ''">^1.9.4</PackageJsonDependenciesLeaflet>
+    <PackageJsonDependenciesReact Condition="$(PackageJsonDependenciesReact) == ''">^19.1.0</PackageJsonDependenciesReact>
     <PackageJsonDependenciesReactBootstrap Condition="$(PackageJsonDependenciesReactBootstrap) == ''">^2.10.9</PackageJsonDependenciesReactBootstrap>
-    <PackageJsonDependenciesReactDom Condition="$(PackageJsonDependenciesReactDom) == ''">^19.0.0</PackageJsonDependenciesReactDom>
+    <PackageJsonDependenciesReactDom Condition="$(PackageJsonDependenciesReactDom) == ''">^19.1.0</PackageJsonDependenciesReactDom>
+    <PackageJsonDependenciesReactLeaflet Condition="$(PackageJsonDependenciesReactLeaflet) == ''">^5.0.0</PackageJsonDependenciesReactLeaflet>
     <PackageJsonDependenciesReactRouterDom Condition="$(PackageJsonDependenciesReactRouterDom) == ''">^7.4.0</PackageJsonDependenciesReactRouterDom>
+    <PackageJsonDependenciesYup Condition="$(PackageJsonDependenciesYup) == ''">^1.6.1</PackageJsonDependenciesYup>
     <PackageJsonDevdependenciesEslintJs Condition="$(PackageJsonDevdependenciesEslintJs) == ''">^9.21.0</PackageJsonDevdependenciesEslintJs>
+    <PackageJsonDevdependenciesTypesLeaflet Condition="$(PackageJsonDevdependenciesTypesLeaflet) == ''">^1.9.18</PackageJsonDevdependenciesTypesLeaflet>
     <PackageJsonDevdependenciesTypesReact Condition="$(PackageJsonDevdependenciesTypesReact) == ''">^19.0.10</PackageJsonDevdependenciesTypesReact>
     <PackageJsonDevdependenciesTypesReactDom Condition="$(PackageJsonDevdependenciesTypesReactDom) == ''">^19.0.4</PackageJsonDevdependenciesTypesReactDom>
     <PackageJsonDevdependenciesVitejsPluginReact Condition="$(PackageJsonDevdependenciesVitejsPluginReact) == ''">^4.3.4</PackageJsonDevdependenciesVitejsPluginReact>
