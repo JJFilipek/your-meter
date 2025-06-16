@@ -26,7 +26,7 @@ export function Layout() {
                 <div className="sidebar d-flex flex-column p-3">
                     <div className="text-center mb-4">
                         <Image src="/Your-Meter/electricMeter.png" alt="Logo" className="logo mb-2" />
-                        <h4 className="text-white">Mój licznik</h4>
+                        <h4 className="text-white">Mój licznik</h4><h6>3.0</h6>
                     </div>
                     <Nav className="flex-column">
                         <Nav.Link as={NavLink} to="/Your-Meter" className="navbar-item px-3 py-2 mb-2">

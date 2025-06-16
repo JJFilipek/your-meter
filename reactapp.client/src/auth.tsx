@@ -32,11 +32,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const storedAuth = localStorage.getItem('isAuthenticated');
     const storedUser = localStorage.getItem('user');
 
-    if (storedAuth === 'true') {
+    if (storedAuth === 'true' && storedUser) {
       setIsAuthenticated(true);
-      if (storedUser) {
-        setUser(JSON.parse(storedUser));
-      }
+      setUser(JSON.parse(storedUser));
+    } else {
+      // TESTOWO dla GH Pages – auto login na starcie:
+      login();
     }
   }, []);
 

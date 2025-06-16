@@ -1,6 +1,6 @@
-import React, {JSX} from "react";
+import React, { JSX } from "react";
 import ReactDOM from "react-dom/client";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom"; // 👈 HashRouter zamiast BrowserRouter
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./home/HomePage.css";
 import "./root/layout/index.css";
@@ -13,10 +13,10 @@ import MapPage from "./map/MapPage";
 import { ChartsPage } from "./charts/ChartsPage";
 import { ElectricityGeneratorPage } from "./infrastructure/electricityGenerator/ElectricityGeneratorPage";
 import { PmaxPage } from "./infrastructure/pmax/PmaxPage";
-import { MeterReadingsPage } from "./readings/MeterReadingsPage"
-import { LoginPage } from "./pages/LoginPage"
-import { AuthProvider, useAuth } from "./auth"
-import { AccountSettingsPage } from "./pages/AccountSettingsPage"
+import { MeterReadingsPage } from "./readings/MeterReadingsPage";
+import { LoginPage } from "./pages/LoginPage";
+import { AuthProvider, useAuth } from "./auth";
+import { AccountSettingsPage } from "./pages/AccountSettingsPage";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
     const { isAuthenticated } = useAuth();
@@ -26,7 +26,7 @@ function RequireAuth({ children }: { children: JSX.Element }) {
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
         <AuthProvider>
-            <BrowserRouter basename="/Your-Meter">
+            <HashRouter>
                 <Routes>
                     <Route path="/" element={<Navigate to="/home" replace />} />
 
@@ -66,7 +66,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 
                     <Route path="*" element={<Navigate to="/home" replace />} />
                 </Routes>
-            </BrowserRouter>
+            </HashRouter>
         </AuthProvider>
     </React.StrictMode>
 );
