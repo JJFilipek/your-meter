@@ -1,6 +1,0 @@
-C:\Users\akornatka\Desktop\Zajecia 2025\TIU\Zajecia\ReactApp\reactapp.client\obj\Debug\reactapp.client.esproj.CoreCompileInputs.cache
-C:\Users\jakub\Desktop\Studia\5 semestr\wykłady\Tworzenie interfejsów użytkownika\Zajęcia\ReactApp\reactapp.client\obj\Debug\reactapp.client.esproj.CoreCompileInputs.cache
-C:\Users\jakub\Desktop\Studia\5 semestr\ćwiczenia\Tworzenie interfejsów użytkownika\ReactApp\reactapp.client\obj\Debug\reactapp.client.esproj.CoreCompileInputs.cache
-C:\Users\jakub\Desktop\Studia\5 semestr\ćwiczenia\Tworzenie interfejsów użytkownika\ReactApp - Copy\reactapp.client\obj\Debug\reactapp.client.esproj.CoreCompileInputs.cache
-C:\Users\jakub\Desktop\Studia\5 semestr\ćwiczenia\Tworzenie interfejsów użytkownika\Twoj_Licznik_1.2\reactapp.client\obj\Debug\reactapp.client.esproj.CoreCompileInputs.cache
-C:\Twoj_Licznik_1.2\reactapp.client\obj\Debug\reactapp.client.esproj.CoreCompileInputs.cache
