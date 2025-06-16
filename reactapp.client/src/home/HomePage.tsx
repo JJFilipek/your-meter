@@ -65,7 +65,7 @@ const usageChartOptions = {
 
 const typeChartData = {
     labels: ['Biuro handlowe', 'Utrzymanie Ruchu', 'Hala Storczyk', 'Hala Róża'],
-    datasets: [{ data: [8, 22, 30, 40], backgroundColor: ['#330018', '#550029', '#7d003c', '#aa004f'], borderWidth: 1 }]
+    datasets: [{ data: [8, 22, 30, 40], backgroundColor: ['#330018', '#550029', '#7d003c', '#aa004f'], borderWidth: 1,  borderColor: 'rgba(255, 255, 255, 0.15)' }]
 } as any
 const typeChartOptions = {
     responsive: true,

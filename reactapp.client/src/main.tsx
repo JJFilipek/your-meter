@@ -28,13 +28,13 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
         <AuthProvider>
             <BrowserRouter basename="/Your-Meter">
                 <Routes>
-                    <Route path="/" element={<Navigate to="/Your-Meter" replace />} />
+                    <Route path="/" element={<Navigate to="/home" replace />} />
 
-                    <Route path="/login" element={<LoginPage />} />
-
-                    <Route path="/Your-Meter" element={<RequireAuth><Layout /></RequireAuth>}>
+                    <Route path="/home" element={<RequireAuth><Layout /></RequireAuth>}>
                         <Route index element={<HomePage />} />
                     </Route>
+
+                    <Route path="/login" element={<LoginPage />} />
 
                     <Route path="/infrastructure/meter/list" element={<RequireAuth><Layout /></RequireAuth>}>
                         <Route index element={<Meters />} />
@@ -64,8 +64,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                         <Route index element={<AccountSettingsPage />} />
                     </Route>
 
-                    <Route path="/" element={<Navigate to="/Your-Meter" replace />} />
-                    <Route path="*" element={<Navigate to="/Your-Meter" replace />} />
+                    <Route path="*" element={<Navigate to="/home" replace />} />
                 </Routes>
             </BrowserRouter>
         </AuthProvider>

@@ -26,7 +26,7 @@ export function Layout() {
                 <div className="sidebar d-flex flex-column p-3">
                     <div className="text-center mb-4">
                         <Image src="/Your-Meter/electricMeter.png" alt="Logo" className="logo mb-2" />
-                        <h4 className="text-white">Twój licznik</h4>
+                        <h4 className="text-white">Mój licznik</h4>
                     </div>
                     <Nav className="flex-column">
                         <Nav.Link as={NavLink} to="/Your-Meter" className="navbar-item px-3 py-2 mb-2">
@@ -70,7 +70,7 @@ export function Layout() {
                                     <Fa.FaQuestionCircle className="me-2" /> FAQ
                                 </Nav.Link>
                                 <NavDropdown
-                                    title={<span className="px-3 py-2"><Fa.FaUserCircle className="me-2" />Jakub Filipek</span>}
+                                    title={<span className="px-3 py-2"><Fa.FaUserCircle className="me-2"></Fa.FaUserCircle>Jakub Filipek</span>}
                                     align="end"
                                     className="me-2"
                                 >
@@ -98,11 +98,11 @@ export function Layout() {
                             <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" className="p-2">
                                 <Fa.FaFacebook size={20} />
                             </a>
-                            <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" className="p-2">
-                                <Fa.FaInstagram size={20} />
+                            <a href="https://github.com/JJFilipek" target="_blank" rel="noopener noreferrer" className="p-2">
+                                <Fa.FaGithub size={20} />
                             </a>
-                            <a href="https://tiktok.com" target="_blank" rel="noopener noreferrer" className="p-2">
-                                <Fa.FaTiktok size={20} />
+                            <a href="https://www.linkedin.com/in/jakub-filipek-check-it/" target="_blank" rel="noopener noreferrer" className="p-2">
+                                <Fa.FaLinkedin size={20} />
                             </a>
                         </div>
                         <small>&copy; 2025 Twój licznik – wszystkie prawa zastrzeżone</small>

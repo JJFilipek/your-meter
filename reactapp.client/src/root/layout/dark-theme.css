@@ -268,3 +268,26 @@ body[data-theme='dark'] ::-webkit-scrollbar-thumb {
 body[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
     background: #666;
 }
+
+/* Remove link hover/focus/active highlight in dark theme */
+body[data-theme='dark'] a,
+body[data-theme='dark'] .nav-link,
+body[data-theme='dark'] .navbar-item {
+    color: var(--text-primary) !important;
+    text-decoration: none !important;
+    background-color: transparent !important;
+}
+
+body[data-theme='dark'] a:hover,
+body[data-theme='dark'] .nav-link:hover,
+body[data-theme='dark'] .navbar-item:hover,
+body[data-theme='dark'] .nav-link.active,
+body[data-theme='dark'] .navbar-item.active,
+body[data-theme='dark'] .nav-link:focus,
+body[data-theme='dark'] .navbar-item:focus {
+    color: var(--text-primary) !important;
+    background-color: transparent !important;
+    text-decoration: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}

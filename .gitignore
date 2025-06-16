@@ -52,3 +52,5 @@ coverage/
 *.nupkg
 Temp/
 ReactApp.Server/
+
+.vs
