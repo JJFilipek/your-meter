@@ -1,0 +1,98 @@
+/* Filter bar container */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* Filter chip */
+.filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--card-bg);
+    transition: all 0.2s ease-in-out;
+}
+
+.filter-chip:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Filter label */
+.filter-label {
+    white-space: nowrap;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* Form controls */
+.filter-chip .form-control,
+.filter-chip .form-select {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+    min-width: 120px;
+}
+
+.filter-chip .form-control:focus,
+.filter-chip .form-select:focus {
+    background-color: var(var(--card-bg));
+    border-color: var(--bs-primary);
+    color: var(--text-primary);
+    box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.1);
+}
+
+/* Remove button */
+.filter-chip .btn-outline-danger {
+    padding: 0.25rem 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    font-size: 0.875rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .filter-chip {
+        width: 100%;
+    }
+    
+    .filter-chip .form-control,
+    .filter-chip .form-select {
+        flex: 1;
+    }
+}
+
+/* Dark mode overrides */
+body[data-theme='dark'] .filter-chip {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+body[data-theme='dark'] .filter-chip:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body[data-theme='dark'] .filter-chip .form-control,
+body[data-theme='dark'] .filter-chip .form-select {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+body[data-theme='dark'] .filter-chip .btn-outline-danger {
+    border-color: var(--bs-danger);
+    color: var(--bs-danger);
+}
+
+body[data-theme='dark'] .filter-chip .btn-outline-danger:hover {
+    background-color: var(--bs-danger);
+    color: white;
+}
