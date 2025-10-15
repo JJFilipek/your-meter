@@ -5,17 +5,17 @@ jspm_packages/
 *.tgz
 
 # Logs
-logs
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-pids
+pids/
 *.pid
 *.seed
 *.pid.lock
 
-# Environment
+# Environment files
 .env
 .env.*.local
 .env.local
@@ -26,14 +26,17 @@ build/
 dist/
 public/
 
-# Editor
+# Editor and IDE
 .vscode/
+.vs/
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.iml
+.idea/
 out/
+Temp/
 
 # Runtime data
 *.tmp
@@ -47,10 +50,13 @@ coverage/
 
 # Misc
 .DS_Store
-.idea/
 *.userprefs
 *.nupkg
-Temp/
-ReactApp.Server/
 
-.vs
+# Ignore backend/server project (not used)
+ReactApp.Server/
+ReactApp.sln
+
+# Archive or backup folders
+_archive_/
+backup/
