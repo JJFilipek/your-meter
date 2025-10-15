@@ -1,6 +1,6 @@
 import React, { JSX } from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom"; // 👈 HashRouter zamiast BrowserRouter
+import { HashRouter, Routes, Route, Navigate } from "react-router-dom"; // HashRouter zamiast BrowserRouter
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./home/HomePage.css";
 import "./root/layout/index.css";
