@@ -60,3 +60,14 @@ ReactApp.sln
 # Archive or backup folders
 _archive_/
 backup/
+
+# Additional ignores
+Thumbs.db
+desktop.ini
+*.orig
+*.rej
+gh-pages/
+.vite/
+reactapp.client/.vite/
+reactapp.client/node_modules/
+reactapp.client/dist/
