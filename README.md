@@ -62,3 +62,7 @@ In the `reactapp.client` directory, you can run the following scripts:
 -   `npm run lint`: Lints the source code using ESLint to check for code quality and style issues.
 -   `npm run preview`: Starts a local server to preview the production build from the `dist` folder.
 -   `npm run deploy`: Builds the project and deploys it to GitHub Pages.
+
+## License
+
+This project is distributed under the terms of the [MIT License](LICENSE).
