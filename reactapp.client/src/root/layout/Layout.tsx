@@ -25,11 +25,11 @@ export function Layout() {
             <div className="d-flex flex-grow-1">
                 <div className="sidebar d-flex flex-column p-3">
                     <div className="text-center mb-4">
-                        <Image src="/Your-Meter/electricMeter.png" alt="Logo" className="logo mb-2" />
+                        <Image src="/your-meter/electricMeter.png" alt="Logo" className="logo mb-2" />
                         <h4 className="text-white">Twój licznik</h4>
                     </div>
                     <Nav className="flex-column">
-                        <Nav.Link as={NavLink} to="/Your-Meter" className="navbar-item px-3 py-2 mb-2">
+                        <Nav.Link as={NavLink} to="/your-meter" className="navbar-item px-3 py-2 mb-2">
                             <Fa.FaHome className="me-2" /> Strona główna
                         </Nav.Link>
                         <Nav.Link as={NavLink} to="/infrastructure/meter/list" className="navbar-item px-3 py-2 mb-2">

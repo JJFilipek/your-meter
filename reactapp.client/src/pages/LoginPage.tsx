@@ -11,7 +11,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const from = location.state?.from?.pathname || '/Your-Meter';
+  const from = location.state?.from?.pathname || '/your-meter';
   const [activeTab, setActiveTab] = useState('login');
   const [loginStatus, setLoginStatus] = useState<{type?: string, message?: string}>({});
 
