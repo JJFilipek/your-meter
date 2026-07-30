@@ -8,7 +8,12 @@ type MeterProps = {
 export const MeterItem = ({ meter, statusColors }: MeterProps) => (
     <tr>
         <td>{meter.serialNo}</td>
-        <td>{meter.name}</td>
+        <td>
+            {meter.name}
+            {meter.isSimulated && (
+                <span className="badge text-bg-secondary ms-2">Symulacja</span>
+            )}
+        </td>
         <td>{meter.model}</td>
         <td>{meter.firmware}</td>
         <td>{meter.tariff}</td>

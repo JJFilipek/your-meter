@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
     MapContainer,
     TileLayer,
@@ -8,16 +8,17 @@ import {
 } from 'react-leaflet'
 import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { meterList } from '../data/meters'
-import { Container, Row, Col, Card, Form, Breadcrumb } from 'react-bootstrap'
+import { Alert, Container, Row, Col, Card, Form, Breadcrumb, Spinner } from 'react-bootstrap'
 import * as Fa from "react-icons/fa"
+import { getMeters } from '../api/meters'
+import type { Meter } from '../types/infrastructure/meter'
 
 
 const statusColors: Record<string, string> = {
     'Sprawny': '#357951',
     'Z problemami': '#b08900',
     'Brak komunikacji': '#984040',
-    'Nieaktywny powyżej 7 dni': '#5c636a'
+    'Nieaktywny': '#5c636a'
 }
 function createDotIcon(status: string) {
     return L.divIcon({
@@ -40,15 +41,33 @@ function FlyToMeter({ lat, lng }: { lat: number; lng: number }) {
     return null
 }
 export default function MapPage() {
+    const [meters, setMeters] = useState<Meter[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [query, setQuery] = useState('')
     const [activeMeter, setActiveMeter] = useState<string | null>(null)
     const markerRefs = useRef<Record<string, L.Marker>>({})
 
+    useEffect(() => {
+        const controller = new AbortController()
+        getMeters(controller.signal)
+            .then(setMeters)
+            .catch(error => {
+                if (error instanceof DOMException && error.name === 'AbortError') return
+                setLoadError(error instanceof Error ? error.message : 'Nie udało się pobrać liczników.')
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setIsLoading(false)
+            })
+
+        return () => controller.abort()
+    }, [])
+
     const filtered = useMemo(() => {
-        return meterList.filter((m) =>
+        return meters.filter((m) =>
             m.name.toLowerCase().includes(query.toLowerCase())
         )
-    }, [query])
+    }, [meters, query])
 
     return (
         <Container fluid>
@@ -75,6 +94,13 @@ export default function MapPage() {
                                 className="mb-3"
                             />
                             <div style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+                                {isLoading && (
+                                    <div className="text-muted py-3">
+                                        <Spinner size="sm" className="me-2" />
+                                        Pobieranie liczników
+                                    </div>
+                                )}
+                                {loadError && <Alert variant="danger">{loadError}</Alert>}
                                 {filtered.map((meter) => (
                                     <div
                                         key={meter.serialNo}
@@ -82,7 +108,7 @@ export default function MapPage() {
                                         style={{ cursor: 'pointer' }}
                                         onClick={() => {
                                             setActiveMeter(String(meter.serialNo))
-                                            const marker = markerRefs.current[meter.serialNo]
+                                            const marker = markerRefs.current[meter.id]
                                             if (marker) marker.openPopup()
                                         }}
                                     >
@@ -117,7 +143,7 @@ export default function MapPage() {
                                         position={[meter.location.lat, meter.location.lng]}
                                         icon={createDotIcon(meter.status)}
                                         ref={(ref) => {
-                                            if (ref) markerRefs.current[meter.serialNo] = ref
+                                            if (ref) markerRefs.current[meter.id] = ref
                                         }}
                                     >
                                         {activeMeter === String(meter.serialNo) && (
@@ -127,12 +153,12 @@ export default function MapPage() {
                                             <strong>{meter.name}</strong><br />
                                             {meter.location.site}<br />
                                             {meter.location.city}<br />
-                                            <button
-                                                onClick={() => alert(`Otwórz szczegóły licznika ${meter.serialNo}`)}
+                                            <a
+                                                href={`#/readings/meterReadingsPage?meterId=${meter.id}`}
                                                 className="btn btn-sm btn-outline-brand mt-2"
                                             >
-                                                Szczegóły
-                                            </button>
+                                                Odczyty
+                                            </a>
 
                                         </Popup>
                                     </Marker>

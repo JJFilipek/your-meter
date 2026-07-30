@@ -49,6 +49,9 @@ export function Layout() {
                     <Nav.Link as={NavLink} to="/infrastructure/meter/list" className="navbar-item px-3 py-2 mb-2">
                         <Fa.FaBolt className="me-2" /> Liczniki
                     </Nav.Link>
+                    <Nav.Link as={NavLink} to="/simulators" className="navbar-item px-3 py-2 mb-2">
+                        <Fa.FaCogs className="me-2" /> Symulatory
+                    </Nav.Link>
                     <Nav.Link as={NavLink} to="/charts" className="navbar-item px-3 py-2 mb-2">
                         <Fa.FaChartBar className="me-2" /> Wykresy
                     </Nav.Link>

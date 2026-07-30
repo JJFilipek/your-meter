@@ -8,18 +8,14 @@ interface FormValues {
 }
 
 const allColumns = [
-    { key: "aPlus", label: "1.8.0 (A+)" },
-    { key: "aPlusT1", label: "1.8.1 (A+ T1)" },
-    { key: "aPlusT2", label: "1.8.2 (A+ T2)" },
-    { key: "aMinus", label: "2.8.0 (A-)" },
-    { key: "aMinusT1", label: "2.8.1 (A- T1)" },
-    { key: "aMinusT2", label: "2.8.2 (A- T2)" },
-    { key: "qPlus", label: "3.8.0 (Q+)" },
-    { key: "qMinus", label: "4.8.0 (Q−)" },
-    { key: "q1", label: "5.8.0 (Q1 – indukcyjna import)" },
-    { key: "q2", label: "6.8.0 (Q2 – pojemnościowa import)" },
-    { key: "q3", label: "7.8.0 (Q3 – indukcyjna eksport)" },
-    { key: "q4", label: "8.8.0 (Q4 – pojemnościowa eksport)" }
+    { key: "activeImportKwh", label: "Energia pobrana (kWh)" },
+    { key: "activeExportKwh", label: "Energia oddana (kWh)" },
+    { key: "activePowerKw", label: "Moc czynna (kW)" },
+    { key: "reactivePowerKvar", label: "Moc bierna (kvar)" },
+    { key: "voltage", label: "Napięcie (V)" },
+    { key: "current", label: "Prąd (A)" },
+    { key: "frequencyHz", label: "Częstotliwość (Hz)" },
+    { key: "quality", label: "Jakość" }
 ]
 
 type Props = {

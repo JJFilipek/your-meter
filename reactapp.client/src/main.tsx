@@ -18,6 +18,7 @@ const ElectricityGeneratorPage = lazy(() => import("./infrastructure/electricity
 const PmaxPage = lazy(() => import("./infrastructure/pmax/PmaxPage").then((module) => ({ default: module.PmaxPage })));
 const MeterReadingsPage = lazy(() => import("./readings/MeterReadingsPage").then((module) => ({ default: module.MeterReadingsPage })));
 const AccountSettingsPage = lazy(() => import("./pages/AccountSettingsPage").then((module) => ({ default: module.AccountSettingsPage })));
+const MeterLabPage = lazy(() => import("./simulators/MeterLabPage"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
     const { isAuthenticated } = useAuth();
@@ -51,6 +52,10 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
 
                         <Route path="/map" element={<RequireAuth><Layout /></RequireAuth>}>
                             <Route index element={<MapPage />} />
+                        </Route>
+
+                        <Route path="/simulators" element={<RequireAuth><Layout /></RequireAuth>}>
+                            <Route index element={<MeterLabPage />} />
                         </Route>
 
                         <Route path="/infrastructure/electricityGenerator" element={<RequireAuth><Layout /></RequireAuth>}>

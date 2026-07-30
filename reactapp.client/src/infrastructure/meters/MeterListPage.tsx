@@ -1,9 +1,8 @@
-import { Container, Table, Breadcrumb, Button, Modal, Form, Row, Col } from 'react-bootstrap'
+import { Alert, Container, Table, Breadcrumb, Button, Modal, Form, Row, Col, Spinner } from 'react-bootstrap'
 import { useMemo, useState, useEffect } from 'react'
 import { Meter } from '../../types/infrastructure/meter'
 import { MeterFilters } from './MeterFilters'
 import { MeterItem } from './MeterItem'
-import { meterList } from '../../data/meters'
 import * as Fa from "react-icons/fa"
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -11,12 +10,13 @@ import { divIcon } from 'leaflet'
 import { Formik, Form as FormikForm, Field, ErrorMessage, FormikHelpers } from 'formik'
 import * as Yup from 'yup'
 import { meterValidationSchema } from '../../validations/schemas'
+import { createMeter, getMeters } from '../../api/meters'
 
 const statusColors: Record<string, string> = {
     'Sprawny': '#357951',
     'Z problemami': '#b08900',
     'Brak komunikacji': '#984040',
-    'Nieaktywny powyżej 7 dni': '#5c636a'
+    'Nieaktywny': '#5c636a'
 }
 
 const headers = [
@@ -44,6 +44,9 @@ const greenDotIcon = divIcon({
 })
 
 export const Meters = () => {
+    const [meters, setMeters] = useState<Meter[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [filters, setFilters] = useState<Record<string, string>>({})
     const [sortKey, setSortKey] = useState<string | null>(null)
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null)
@@ -51,8 +54,27 @@ export const Meters = () => {
     const rowsPerPage = 20
     const [currentPage, setCurrentPage] = useState(1)
 
+    const loadMeters = async (signal?: AbortSignal) => {
+        setIsLoading(true)
+        setLoadError(null)
+        try {
+            setMeters(await getMeters(signal))
+        } catch (error) {
+            if (error instanceof DOMException && error.name === 'AbortError') return
+            setLoadError(error instanceof Error ? error.message : 'Nie udało się pobrać liczników.')
+        } finally {
+            if (!signal?.aborted) setIsLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        const controller = new AbortController()
+        void loadMeters(controller.signal)
+        return () => controller.abort()
+    }, [])
+
     const filteredAndSorted = useMemo(() => {
-        let result = meterList.filter(meter =>
+        let result = meters.filter(meter =>
             headers.every(({ key }) => {
                 if (!filters[key]) return true
                 return String(meter[key as keyof Meter])
@@ -62,20 +84,15 @@ export const Meters = () => {
         )
         if (sortKey && sortDirection) {
             result = [...result].sort((a, b) => {
-                const valA = a[sortKey as keyof Meter]
-                const valB = b[sortKey as keyof Meter]
-                if (sortKey === 'status') {
-                    return sortDirection === 'asc'
-                        ? String(valA).localeCompare(String(valB))
-                        : String(valB).localeCompare(String(valA))
-                }
-                if (valA < valB) return sortDirection === 'asc' ? -1 : 1
-                if (valA > valB) return sortDirection === 'asc' ? 1 : -1
-                return 0
+                const valA = String(a[sortKey as keyof Meter])
+                const valB = String(b[sortKey as keyof Meter])
+                return sortDirection === 'asc'
+                    ? valA.localeCompare(valB, 'pl', { numeric: true })
+                    : valB.localeCompare(valA, 'pl', { numeric: true })
             })
         }
         return result
-    }, [filters, sortKey, sortDirection])
+    }, [filters, meters, sortKey, sortDirection])
 
     const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / rowsPerPage))
     const pagedMeters = filteredAndSorted.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
@@ -119,6 +136,14 @@ export const Meters = () => {
                     Dodaj licznik
                 </Button>
             </div>
+            {loadError && (
+                <Alert variant="danger" className="d-flex justify-content-between align-items-center">
+                    <span>{loadError}</span>
+                    <Button variant="outline-danger" size="sm" onClick={() => void loadMeters()}>
+                        Spróbuj ponownie
+                    </Button>
+                </Alert>
+            )}
             <div className="table-responsive mb-3">
                 <Table striped bordered hover className="mb-0">
                     <thead>
@@ -142,13 +167,28 @@ export const Meters = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {pagedMeters.map((meter) => (
+                        {isLoading && (
+                            <tr>
+                                <td colSpan={headers.length} className="text-center py-4">
+                                    <Spinner size="sm" className="me-2" />
+                                    Pobieranie liczników
+                                </td>
+                            </tr>
+                        )}
+                        {!isLoading && pagedMeters.map((meter) => (
                             <MeterItem
-                                key={meter.serialNo}
+                                key={meter.id}
                                 meter={meter}
                                 statusColors={statusColors}
                             />
                         ))}
+                        {!isLoading && !loadError && pagedMeters.length === 0 && (
+                            <tr>
+                                <td colSpan={headers.length} className="text-center text-muted py-4">
+                                    Brak liczników spełniających wybrane kryteria.
+                                </td>
+                            </tr>
+                        )}
                     </tbody>
                 </Table>
             </div>
@@ -167,14 +207,19 @@ export const Meters = () => {
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                 >→</Button>
             </div>
-            <AddMeterModal show={showModal} onClose={() => setShowModal(false)} />
+            <AddMeterModal
+                show={showModal}
+                onClose={() => setShowModal(false)}
+                onCreated={(meter) => setMeters(current => [...current, meter])}
+            />
         </Container>
     )
 }
 
 const initialFormData = {
-    serialNumber: '1053',
+    serialNumber: '',
     name: '',
+    manufacturer: '',
     model: '',
     firmware: '',
     tariff: '',
@@ -187,6 +232,11 @@ const validationSchema = meterValidationSchema.shape({
     serialNumber: Yup.string()
         .required('Numer seryjny jest wymagany')
         .matches(/^[A-Z0-9-]+$/, 'Nieprawidłowy format numeru seryjnego'),
+
+    manufacturer: Yup.string()
+        .required('Producent jest wymagany')
+        .min(2, 'Nazwa producenta musi mieć co najmniej 2 znaki')
+        .max(120, 'Nazwa producenta może mieć maksymalnie 120 znaków'),
         
     profile: Yup.string()
         .required('Profil jest wymagany')
@@ -209,44 +259,50 @@ const validationSchema = meterValidationSchema.shape({
     place: Yup.string()
         .required('Lokalizacja/Obiekt jest wymagany')
         .min(2, 'Lokalizacja musi mieć co najmniej 2 znaki')
-        .max(100, 'Lokalizacja może mieć maksymalnie 100 znaków')
-        .test(
-            'unique-location',
-            'Taka lokalizacja już istnieje',
-            async function(value) {
-                await new Promise(resolve => setTimeout(resolve, 500));
-                const existingLocations = ['Hala A', 'Budynek B'];
-                return !existingLocations.includes(value as string);
-            }
-        ),
+        .max(100, 'Lokalizacja może mieć maksymalnie 100 znaków'),
 });
 
-export function AddMeterModal({ show, onClose }: { show: boolean, onClose: () => void }) {
+export function AddMeterModal({
+    show,
+    onClose,
+    onCreated,
+}: {
+    show: boolean
+    onClose: () => void
+    onCreated: (meter: Meter) => void
+}) {
     const [location, setLocation] = useState({ lat: 52.23, lng: 21.01 });
+    const [submitError, setSubmitError] = useState<string | null>(null)
     
     const handleClose = () => {
         onClose();
     };
 
-    const handleSubmit = async (values: typeof initialFormData, { setSubmitting }: FormikHelpers<typeof initialFormData>) => {
+    const handleSubmit = async (values: typeof initialFormData, { setSubmitting, resetForm }: FormikHelpers<typeof initialFormData>) => {
+        setSubmitError(null)
         try {
-            console.log('Form submitted:', {
-                ...values, 
+            const meter = await createMeter({
+                serialNumber: values.serialNumber,
+                name: values.name,
+                manufacturer: values.manufacturer,
+                model: values.model,
+                firmwareVersion: values.firmware,
+                tariff: values.tariff,
+                samplingIntervalSeconds: Number(values.profile),
                 location: {
+                    city: values.city,
+                    site: values.place,
                     lat: location.lat,
-                    lng: location.lng
-                } 
-            });
-            
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            alert('Licznik został dodany!');
-            onClose();
+                    lng: location.lng,
+                },
+            })
+            onCreated(meter)
+            resetForm()
+            onClose()
         } catch (error) {
-            console.error('Error submitting form:', error);
-            alert('Wystąpił błąd podczas dodawania licznika');
+            setSubmitError(error instanceof Error ? error.message : 'Nie udało się dodać licznika.')
         } finally {
-            setSubmitting(false);
+            setSubmitting(false)
         }
     };
     function LocationPicker() {
@@ -274,6 +330,7 @@ export function AddMeterModal({ show, onClose }: { show: boolean, onClose: () =>
                 {({ isSubmitting }) => (
                     <FormikForm>
                         <Modal.Body>
+                    {submitError && <Alert variant="danger">{submitError}</Alert>}
                     <Row className="mb-3">
                         <Col md={6}>
                             <Form.Group className="mb-3">
@@ -282,8 +339,8 @@ export function AddMeterModal({ show, onClose }: { show: boolean, onClose: () =>
                                     as={Form.Control} 
                                     type="text" 
                                     name="serialNumber" 
-                                    disabled
                                 />
+                                <ErrorMessage name="serialNumber" component="div" className="invalid-feedback d-block" />
                             </Form.Group>
                             <Form.Group className="mb-3">
                                 <Form.Label>Nazwa</Form.Label>
@@ -295,6 +352,16 @@ export function AddMeterModal({ show, onClose }: { show: boolean, onClose: () =>
                                     isInvalid={false}
                                 />
                                 <ErrorMessage name="name" component="div" className="invalid-feedback d-block" />
+                            </Form.Group>
+                            <Form.Group className="mb-3">
+                                <Form.Label>Producent</Form.Label>
+                                <Field
+                                    as={Form.Control}
+                                    name="manufacturer"
+                                    type="text"
+                                    placeholder="np. Apator"
+                                />
+                                <ErrorMessage name="manufacturer" component="div" className="invalid-feedback d-block" />
                             </Form.Group>
                             <Form.Group className="mb-3">
                                 <Form.Label>Model</Form.Label>
