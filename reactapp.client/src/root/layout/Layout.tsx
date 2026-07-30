@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react'
-import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { type ReactNode, useEffect, useState } from 'react'
+import { Link, useLocation } from 'wouter'
 import { Alert, Container, Nav, Navbar, Image, NavDropdown } from 'react-bootstrap'
 import * as Fa from 'react-icons/fa'
 import { useAuth } from '../../auth'
 
-export function Layout() {
+export function Layout({ children }: { children: ReactNode }) {
     const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
     const [sidebarOpen, setSidebarOpen] = useState(false)
     const { logout, user } = useAuth()
-    const navigate = useNavigate()
-    const location = useLocation()
+    const [location, navigate] = useLocation()
 
     useEffect(() => {
         document.body.dataset.theme = dark ? 'dark' : 'light'
@@ -18,7 +17,7 @@ export function Layout() {
 
     useEffect(() => {
         setSidebarOpen(false)
-    }, [location.pathname])
+    }, [location])
 
     const handleLogout = async () => {
         await logout()
@@ -43,30 +42,30 @@ export function Layout() {
                 </div>
 
                 <Nav className="flex-column">
-                    <Nav.Link as={NavLink} to="/home" className="navbar-item px-3 py-2 mb-2">
+                    <Link href="/home" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
                         <Fa.FaHome className="me-2" /> Strona główna
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/infrastructure/meter/list" className="navbar-item px-3 py-2 mb-2">
+                    </Link>
+                    <Link href="/infrastructure/meter/list" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
                         <Fa.FaBolt className="me-2" /> Liczniki
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/simulators" className="navbar-item px-3 py-2 mb-2">
+                    </Link>
+                    <Link href="/simulators" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
                         <Fa.FaCogs className="me-2" /> Symulatory
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/charts" className="navbar-item px-3 py-2 mb-2">
+                    </Link>
+                    <Link href="/charts" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
                         <Fa.FaChartBar className="me-2" /> Wykresy
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/infrastructure/electricityGenerator" className="navbar-item px-3 py-2 mb-2">
+                    </Link>
+                    <Link href="/infrastructure/electricityGenerator" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
                         <Fa.FaSolarPanel className="me-2" /> Wytwórca
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/infrastructure/pmax" className="navbar-item px-3 py-2 mb-2">
+                    </Link>
+                    <Link href="/infrastructure/pmax" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
                         <Fa.FaArrowUp className="me-2" /> Moc szczytowa
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/readings/meterReadingsPage" className="navbar-item px-3 py-2 mb-2">
+                    </Link>
+                    <Link href="/readings/meterReadingsPage" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
                         <Fa.FaTachometerAlt className="me-2" /> Wskazania
-                    </Nav.Link>
-                    <Nav.Link as={NavLink} to="/map" className="navbar-item px-3 py-2 mb-2">
+                    </Link>
+                    <Link href="/map" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
                         <Fa.FaMap className="me-2" /> Mapa
-                    </Nav.Link>
+                    </Link>
                 </Nav>
             </aside>
 
@@ -116,15 +115,14 @@ export function Layout() {
                                 {dark ? <Fa.FaSun className="me-2" /> : <Fa.FaMoon className="me-2" />}
                                 <span className="top-nav-label">Motyw</span>
                             </Nav.Link>
-                            <Nav.Link
-                                as={NavLink}
-                                to="/help"
+                            <Link
+                                href="/help"
                                 className="top-nav-action px-3 py-2"
                                 aria-label="FAQ"
                             >
                                 <Fa.FaQuestionCircle className="me-2" />
                                 <span className="top-nav-label">FAQ</span>
-                            </Nav.Link>
+                            </Link>
                             <NavDropdown
                                 title={<span><Fa.FaUserCircle className="me-2" /><span className="top-nav-label">{user?.username ?? 'Użytkownik'}</span></span>}
                                 align="end"
@@ -133,7 +131,7 @@ export function Layout() {
                             >
                                 {!user?.isReadOnly && (
                                     <>
-                                        <NavDropdown.Item as={NavLink} to="/account">
+                                        <NavDropdown.Item onClick={() => navigate('/account')}>
                                             <Fa.FaCog className="me-2" /> Ustawienia konta
                                         </NavDropdown.Item>
                                         <NavDropdown.Divider />
@@ -153,7 +151,7 @@ export function Layout() {
                             Konto demonstracyjne działa tylko w trybie odczytu.
                         </Alert>
                     )}
-                    <Outlet />
+                    {children}
                 </Container>
 
                 <footer className="mt-auto py-3">

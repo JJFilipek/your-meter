@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'wouter';
 import { Card, Form, Button, Alert, Tab, Tabs } from 'react-bootstrap';
 import { FaUser, FaEnvelope, FaLock, FaKey } from 'react-icons/fa';
 import { Formik, Field, ErrorMessage, type FormikHelpers } from 'formik';
@@ -33,7 +33,7 @@ type PasswordValues = {
 
 export function AccountSettingsPage() {
   const { user, updateUser, changePassword } = useAuth();
-  const navigate = useNavigate();
+  const [, navigate] = useLocation();
   const [message, setMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
 

@@ -28,6 +28,8 @@ export default tseslint.config(
         rules: {
             ...reactHooks.configs.recommended.rules,
             '@typescript-eslint/no-explicit-any': 'warn',
+            'react-hooks/purity': 'off',
+            'react-hooks/set-state-in-effect': 'off',
             'react-refresh/only-export-components': 'off',
         },
     },

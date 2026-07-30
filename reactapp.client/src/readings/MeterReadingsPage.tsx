@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'wouter'
 import { Alert, Breadcrumb, Button, Card, Col, Container, Form, Row, Spinner, Table } from 'react-bootstrap'
 import * as Fa from 'react-icons/fa'
 import { getMeterReadings, getMeters, type MeterReading } from '../api/meters'

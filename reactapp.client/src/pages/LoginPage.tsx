@@ -1,6 +1,6 @@
 import { Alert, Card, Col, Container, Row } from 'react-bootstrap'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation } from 'wouter'
 import { FaSignInAlt } from 'react-icons/fa'
 import { type FormikHelpers } from 'formik'
 import { useAuth } from '../auth'
@@ -12,7 +12,7 @@ const demoCredentials: LoginValues = {
 }
 
 export function LoginPage() {
-  const navigate = useNavigate()
+  const [, navigate] = useLocation()
   const { login } = useAuth()
   const [error, setError] = useState<string | null>(null)
 
