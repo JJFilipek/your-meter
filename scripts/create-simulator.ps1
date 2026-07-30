@@ -1,5 +1,8 @@
 param(
     [string]$ApiUrl = "https://licznik-api.jfilipek.com",
+    [string]$Username = "jakub.filipek",
+    [Parameter(Mandatory = $true)]
+    [securestring]$Password,
     [Parameter(Mandatory = $true)]
     [string]$Name,
     [ValidateSet("G11", "G12", "G12W", "C11", "A23")]
@@ -16,6 +19,22 @@ param(
     [double]$InitialImportKwh = 0,
     [double]$InitialExportKwh = 0
 )
+
+$plainPassword = [System.Net.NetworkCredential]::new("", $Password).Password
+$session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
+$appHeaders = @{ "X-App-Request" = "Twoj-Licznik" }
+$loginBody = @{
+    username = $Username
+    password = $plainPassword
+} | ConvertTo-Json
+
+Invoke-RestMethod `
+    -Uri "$($ApiUrl.TrimEnd('/'))/api/auth/login" `
+    -Method Post `
+    -ContentType "application/json" `
+    -Headers $appHeaders `
+    -Body $loginBody `
+    -WebSession $session | Out-Null
 
 $body = @{
     name = $Name
@@ -40,6 +59,8 @@ $result = Invoke-RestMethod `
     -Uri "$($ApiUrl.TrimEnd('/'))/api/simulators" `
     -Method Post `
     -ContentType "application/json" `
-    -Body ($body | ConvertTo-Json)
+    -Headers $appHeaders `
+    -Body ($body | ConvertTo-Json) `
+    -WebSession $session
 
 $result | Format-List

@@ -21,7 +21,8 @@ const AccountSettingsPage = lazy(() => import("./pages/AccountSettingsPage").the
 const MeterLabPage = lazy(() => import("./simulators/MeterLabPage"));
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-    const { isAuthenticated } = useAuth();
+    const { isAuthenticated, isLoading } = useAuth();
+    if (isLoading) return <PageLoader />;
     return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 

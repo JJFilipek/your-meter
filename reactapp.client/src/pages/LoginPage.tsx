@@ -1,48 +1,32 @@
-import { useState } from 'react';
-import { Container, Row, Col, Card, Tab, Alert } from 'react-bootstrap';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { FaSignInAlt, FaUserPlus, FaKey } from 'react-icons/fa';
-import { useAuth } from '../auth';
-import { LoginForm } from '../components/auth/LoginForm';
-import { RegisterForm } from '../components/auth/RegisterForm';
-import { ForgotPasswordForm } from '../components/auth/ForgotPasswordForm';
-import { type FormikHelpers } from 'formik';
-import { type LoginValues } from '../components/auth/LoginForm';
+import { Alert, Card, Col, Container, Row } from 'react-bootstrap'
+import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { FaSignInAlt } from 'react-icons/fa'
+import { type FormikHelpers } from 'formik'
+import { useAuth } from '../auth'
+import { LoginForm, type LoginValues } from '../components/auth/LoginForm'
 
 export function LoginPage() {
-  const navigate = useNavigate();
-  const location = useLocation();
-  const { login } = useAuth();
-  const from = location.state?.from?.pathname || '/home';
-  const [activeTab, setActiveTab] = useState('login');
-  const [loginStatus, setLoginStatus] = useState<{type?: string, message?: string}>({});
+  const navigate = useNavigate()
+  const { login } = useAuth()
+  const [error, setError] = useState<string | null>(null)
 
-  const handleLogin = (values: LoginValues, { setSubmitting }: FormikHelpers<LoginValues>) => {
-    setTimeout(() => {
-      login({ username: values.username });
-      setLoginStatus({ type: 'success', message: 'Zalogowano pomyślnie!' });
-      setSubmitting(false);
-      
-      setTimeout(() => navigate(from, { replace: true }), 1000);
-    }, 1000);
-  };
-
-  const handleRegisterSuccess = () => {
-    setActiveTab('login');
-    setLoginStatus({
-      type: 'success',
-      message: 'Konto zostało utworzone! Możesz się teraz zalogować.'
-    });
-  };
-
-
-  const handleForgotPasswordSuccess = () => {
-    setActiveTab('login');
-    setLoginStatus({
-      type: 'success',
-      message: 'Instrukcje resetowania hasła zostały wysłane na podany adres email.'
-    });
-  };
+  const handleLogin = async (
+    values: LoginValues,
+    { setSubmitting }: FormikHelpers<LoginValues>,
+  ) => {
+    setError(null)
+    try {
+      await login(values.username, values.password)
+      navigate('/home', { replace: true })
+    } catch (loginError) {
+      setError(loginError instanceof Error
+        ? loginError.message
+        : 'Nie udało się zalogować.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   return (
     <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '80vh' }}>
@@ -50,49 +34,19 @@ export function LoginPage() {
         <Col md={8} lg={6} xl={5}>
           <Card className="shadow">
             <Card.Body className="p-4">
-              <Tab.Container activeKey={activeTab} defaultActiveKey="login">
-                <div className="text-center mb-4">
-                  <h3 className="mb-3">
-                    {activeTab === 'login' && <><FaSignInAlt className="me-2" /> Logowanie</>}
-                    {activeTab === 'register' && <><FaUserPlus className="me-2" /> Rejestracja</>}
-                    {activeTab === 'forgot' && <><FaKey className="me-2" /> Odzyskiwanie hasła</>}
-                  </h3>
-                </div>
-
-                <Tab.Content>
-                  <Tab.Pane eventKey="login">
-                    {loginStatus.type === 'success' && (
-                      <Alert variant="success" className="mb-4">
-                        {loginStatus.message}
-                      </Alert>
-                    )}
-                    <LoginForm 
-                      onSubmit={handleLogin} 
-                      onForgotPassword={() => setActiveTab('forgot')}
-                      onRegister={() => setActiveTab('register')}
-                    />
-                  </Tab.Pane>
-                  
-                  <Tab.Pane eventKey="register">
-
-                    <RegisterForm
-                      onSuccess={handleRegisterSuccess}
-                      onSwitchToLogin={() => setActiveTab('login')}
-                    />
-                  </Tab.Pane>
-                  
-                  <Tab.Pane eventKey="forgot">
-                    <ForgotPasswordForm 
-                      onSuccess={handleForgotPasswordSuccess}
-                      onBackToLogin={() => setActiveTab('login')}
-                    />
-                  </Tab.Pane>
-                </Tab.Content>
-              </Tab.Container>
+              <div className="text-center mb-4">
+                <h3>
+                  <FaSignInAlt className="me-2" />
+                  Logowanie
+                </h3>
+                <p className="text-muted mb-0">Zaloguj się kontem zarządzanym przez backend.</p>
+              </div>
+              {error && <Alert variant="danger">{error}</Alert>}
+              <LoginForm onSubmit={handleLogin} />
             </Card.Body>
           </Card>
         </Col>
       </Row>
     </Container>
-  );
+  )
 }

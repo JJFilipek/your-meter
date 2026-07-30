@@ -16,6 +16,18 @@ Przy pierwszym uruchomieniu aplikacja utworzy katalog `App_Data`, bazę SQLite i
 automatycznie zastosuje migracje. Swagger jest dostępny w środowisku deweloperskim
 pod adresem `/swagger`, a kontrola kondycji pod `/health`.
 
+Przy pierwszym uruchomieniu trzeba podać dane początkowego administratora:
+
+```powershell
+$env:Authentication__BootstrapUsername = "admin"
+$env:Authentication__BootstrapEmail = "admin@example.com"
+$env:Authentication__BootstrapPassword = "SilneHasloTymczasowe123"
+```
+
+Hasło jest używane wyłącznie do utworzenia pierwszego konta i trafia do bazy jako
+hash. Kolejne uruchomienia korzystają z istniejącego użytkownika. Po utworzeniu
+konta warto usunąć wartość `Authentication__BootstrapPassword` z konfiguracji.
+
 Łańcuch połączenia można nadpisać zmienną środowiskową:
 
 ```powershell
@@ -31,16 +43,28 @@ $env:ConnectionStrings__DefaultConnection = "Data Source=C:\data\twoj-licznik.db
 - `GET /api/meters/{id}/readings` - odczyty z wybranego zakresu.
 - `POST /api/ingestion/meters/{serialNumber}/readings` - zapis paczki pomiarów.
 - `GET /api/dashboard/summary` - agregaty wyliczone z zapisanych pomiarów.
+- `POST /api/auth/login` - utworzenie sesji w bezpiecznym cookie `HttpOnly`.
+- `GET /api/auth/me` - dane aktualnie zalogowanego użytkownika.
+- `POST /api/auth/logout` - zakończenie sesji.
+- `PUT /api/auth/profile` - aktualizacja nazwy użytkownika i adresu email.
+- `PUT /api/auth/password` - zmiana hasła i zakończenie bieżącej sesji.
 - `GET /api/simulators` - lista symulatorów wraz z liczbą odczytów.
 - `POST /api/simulators` - utworzenie symulatora dla taryfy G11, G12, G12W, C11 lub A23.
 - `PUT /api/simulators/{id}/state` - wstrzymanie lub wznowienie symulatora.
 - `DELETE /api/simulators/{id}?confirmSerial={serial}` - trwałe usunięcie symulatora
   oraz wszystkich jego odczytów.
 
+Poza logowaniem wszystkie endpointy kontrolerów wymagają aktywnej sesji. Żądania
+`POST`, `PUT`, `PATCH` i `DELETE` kierowane do `/api` muszą dodatkowo zawierać
+nagłówek `X-App-Request: Twoj-Licznik`. Własny nagłówek wraz z ograniczeniem CORS
+chroni operacje modyfikujące przed wywołaniem przez formularz z obcej strony.
+
 Nowy symulator można utworzyć również skryptem:
 
 ```powershell
 .\scripts\create-simulator.ps1 `
+  -Username "admin" `
+  -Password (Read-Host -AsSecureString) `
   -Name "Biuro testowe" `
   -Tariff G11 `
   -BasePowerKw 2.4 `

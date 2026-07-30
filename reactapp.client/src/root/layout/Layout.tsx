@@ -20,9 +20,9 @@ export function Layout() {
         setSidebarOpen(false)
     }, [location.pathname])
 
-    const handleLogout = () => {
-        logout()
-        navigate('/login')
+    const handleLogout = async () => {
+        await logout()
+        navigate('/login', { replace: true })
     }
 
     return (
@@ -135,7 +135,7 @@ export function Layout() {
                                     <Fa.FaCog className="me-2" /> Ustawienia konta
                                 </NavDropdown.Item>
                                 <NavDropdown.Divider />
-                                <NavDropdown.Item onClick={handleLogout} className="text-danger">
+                                <NavDropdown.Item onClick={() => void handleLogout()} className="text-danger">
                                     <Fa.FaSignOutAlt className="me-2" /> Wyloguj się
                                 </NavDropdown.Item>
                             </NavDropdown>

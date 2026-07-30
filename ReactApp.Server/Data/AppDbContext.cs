@@ -7,9 +7,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 {
     public DbSet<Meter> Meters => Set<Meter>();
     public DbSet<MeterReading> MeterReadings => Set<MeterReading>();
+    public DbSet<AppUser> Users => Set<AppUser>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        var user = modelBuilder.Entity<AppUser>();
+        user.HasKey(x => x.Id);
+        user.HasIndex(x => x.NormalizedUsername).IsUnique();
+        user.Property(x => x.Username).HasMaxLength(80);
+        user.Property(x => x.NormalizedUsername).HasMaxLength(80);
+        user.Property(x => x.Email).HasMaxLength(160);
+        user.Property(x => x.PasswordHash).HasMaxLength(500);
+
         var meter = modelBuilder.Entity<Meter>();
         meter.HasKey(x => x.Id);
         meter.HasIndex(x => x.SerialNumber).IsUnique();

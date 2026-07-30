@@ -1,4 +1,5 @@
 const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
+const requestTimeoutMs = 10_000
 
 export class ApiError extends Error {
     constructor(
@@ -16,13 +17,20 @@ export async function apiRequest<T>(
 ): Promise<T> {
     const response = await fetch(`${apiBaseUrl}${path}`, {
         ...options,
+        credentials: 'include',
+        signal: options?.signal ?? AbortSignal.timeout(requestTimeoutMs),
         headers: {
             Accept: 'application/json',
+            'X-App-Request': 'Twoj-Licznik',
             ...options?.headers,
         },
     })
 
     if (!response.ok) {
+        if (response.status === 401 && path !== '/api/auth/login') {
+            window.dispatchEvent(new Event('auth:unauthorized'))
+        }
+
         let message = `Serwer zwrócił błąd ${response.status}.`
 
         try {

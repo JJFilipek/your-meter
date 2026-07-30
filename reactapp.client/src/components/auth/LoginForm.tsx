@@ -18,11 +18,9 @@ export type LoginValues = {
 
 interface LoginFormProps {
   onSubmit: (values: LoginValues, actions: FormikHelpers<LoginValues>) => void;
-  onForgotPassword: () => void;
-  onRegister: () => void;
 }
 
-export function LoginForm({ onSubmit, onForgotPassword, onRegister }: LoginFormProps) {
+export function LoginForm({ onSubmit }: LoginFormProps) {
   return (
     <Formik
       initialValues={{ username: '', password: '' }}
@@ -58,18 +56,9 @@ export function LoginForm({ onSubmit, onForgotPassword, onRegister }: LoginFormP
           </div>
           
           <div className="mb-3">
-            <div className="d-flex justify-content-between align-items-center">
-              <label htmlFor="password" className="form-label">
-                <FaLock className="me-2" /> Hasło
-              </label>
-              <Button 
-                variant="link" 
-                className="p-0 text-decoration-none small"
-                onClick={onForgotPassword}
-              >
-                Zapomniałeś hasła?
-              </Button>
-            </div>
+            <label htmlFor="password" className="form-label">
+              <FaLock className="me-2" /> Hasło
+            </label>
             <Field
               type="password"
               name="password"
@@ -90,20 +79,6 @@ export function LoginForm({ onSubmit, onForgotPassword, onRegister }: LoginFormP
               {isSubmitting ? 'Logowanie...' : 'Zaloguj się'}
             </Button>
           </div>
-          
-          <div className="text-center">
-            <small className="text-muted">
-              Nie masz jeszcze konta?{' '}
-              <Button 
-                variant="link" 
-                onClick={onRegister} 
-                className="p-0 align-baseline text-decoration-none"
-              >
-                Zarejestruj się
-              </Button>
-            </small>
-          </div>
-
         </Form>
       )}
     </Formik>

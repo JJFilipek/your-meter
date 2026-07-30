@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, Form, Button, Alert, Tab, Tabs } from 'react-bootstrap';
 import { FaUser, FaEnvelope, FaLock, FaKey } from 'react-icons/fa';
 import { Formik, Field, ErrorMessage, type FormikHelpers } from 'formik';
@@ -31,7 +32,8 @@ type PasswordValues = {
 };
 
 export function AccountSettingsPage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, changePassword } = useAuth();
+  const navigate = useNavigate();
   const [message, setMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
 
@@ -40,10 +42,9 @@ export function AccountSettingsPage() {
     { setSubmitting, resetForm }: FormikHelpers<ProfileValues>
   ) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      updateUser(values);
+      await updateUser(values);
       setMessage({ type: 'success', text: 'Dane zostały zaktualizowane!' });
-      resetForm();
+      resetForm({ values });
     } catch {
       setMessage({ type: 'danger', text: 'Wystąpił błąd podczas aktualizacji danych.' });
     } finally {
@@ -52,13 +53,14 @@ export function AccountSettingsPage() {
   };
 
   const handlePasswordSubmit = async (
-    _values: PasswordValues,
+    values: PasswordValues,
     { setSubmitting, resetForm }: FormikHelpers<PasswordValues>
   ) => {
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      setMessage({ type: 'success', text: 'Hasło zostało zmienione!' });
+      await changePassword(values.currentPassword, values.newPassword);
+      setMessage({ type: 'success', text: 'Hasło zostało zmienione. Zaloguj się ponownie.' });
       resetForm();
+      setTimeout(() => navigate('/login', { replace: true }), 1200);
     } catch {
       setMessage({ type: 'danger', text: 'Wystąpił błąd podczas zmiany hasła.' });
     } finally {
