@@ -10,6 +10,7 @@ import * as L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { Alert, Container, Row, Col, Card, Form, Breadcrumb, Spinner } from 'react-bootstrap'
 import * as Fa from "react-icons/fa"
+import { Link } from 'react-router-dom'
 import { getMeters } from '../api/meters'
 import type { Meter } from '../types/infrastructure/meter'
 
@@ -153,12 +154,12 @@ export default function MapPage() {
                                             <strong>{meter.name}</strong><br />
                                             {meter.location.site}<br />
                                             {meter.location.city}<br />
-                                            <a
-                                                href={`#/readings/meterReadingsPage?meterId=${meter.id}`}
+                                            <Link
+                                                to={`/readings/meterReadingsPage?meterId=${meter.id}`}
                                                 className="btn btn-sm btn-outline-brand mt-2"
                                             >
                                                 Odczyty
-                                            </a>
+                                            </Link>
 
                                         </Popup>
                                     </Marker>

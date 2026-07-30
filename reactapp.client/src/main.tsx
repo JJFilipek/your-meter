@@ -1,6 +1,6 @@
 import React, { JSX, lazy, Suspense } from "react";
 import ReactDOM from "react-dom/client";
-import { HashRouter, Routes, Route, Navigate } from "react-router-dom"; // HashRouter zamiast BrowserRouter
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "./home/HomePage.css";
 import "./root/layout/index.css";
@@ -20,6 +20,24 @@ const MeterReadingsPage = lazy(() => import("./readings/MeterReadingsPage").then
 const AccountSettingsPage = lazy(() => import("./pages/AccountSettingsPage").then((module) => ({ default: module.AccountSettingsPage })));
 const MeterLabPage = lazy(() => import("./simulators/MeterLabPage"));
 
+function migrateLegacyHashRoute() {
+    const hashRoute = window.location.hash.slice(1);
+    if (!hashRoute.startsWith("/")) return;
+
+    const legacyUrl = new URL(hashRoute, window.location.origin);
+    const searchParams = new URLSearchParams(window.location.search);
+    legacyUrl.searchParams.forEach((value, key) => searchParams.set(key, value));
+    const search = searchParams.toString();
+
+    window.history.replaceState(
+        null,
+        "",
+        `${legacyUrl.pathname}${search ? `?${search}` : ""}${legacyUrl.hash}`,
+    );
+}
+
+migrateLegacyHashRoute();
+
 function RequireAuth({ children }: { children: JSX.Element }) {
     const { isAuthenticated, isLoading } = useAuth();
     if (isLoading) return <PageLoader />;
@@ -36,7 +54,7 @@ const PageLoader = () => (
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
         <AuthProvider>
-            <HashRouter>
+            <BrowserRouter>
                 <Suspense fallback={<PageLoader />}>
                     <Routes>
                         <Route path="/" element={<Navigate to="/home" replace />} />
@@ -82,7 +100,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                         <Route path="*" element={<Navigate to="/home" replace />} />
                     </Routes>
                 </Suspense>
-            </HashRouter>
+            </BrowserRouter>
         </AuthProvider>
     </React.StrictMode>
 );
