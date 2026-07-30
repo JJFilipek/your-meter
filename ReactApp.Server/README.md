@@ -90,11 +90,13 @@ generowanie z interwałem bieżącym. Zakres historii jest ograniczony do 365 dn
 W trybie deweloperskim Vite przekazuje ścieżki `/api` i `/health` do serwera
 ASP.NET Core. Jeżeli frontend i API będą hostowane na różnych domenach, podczas
 budowania frontendu trzeba ustawić `VITE_API_BASE_URL` na publiczny adres API,
-czyli obecnie `https://licznik-api.jfilipek.com`. Przykład znajduje się w
+czyli obecnie `https://your-meter-api.jfilipek.com`. Przykład znajduje się w
 `reactapp.client/.env.example`.
 
-Frontend działa na Cloudflare Pages pod adresem `https://licznik.jfilipek.com`,
-a produkcyjne API pod adresem `https://licznik-api.jfilipek.com`.
+Frontend działa na Cloudflare Pages pod adresem `https://your-meter.jfilipek.com`,
+a produkcyjne API pod adresem `https://your-meter-api.jfilipek.com`. Dotychczasowe
+adresy `https://licznik.jfilipek.com` i `https://licznik-api.jfilipek.com`
+pozostają aliasami zgodności.
 
 ## Migracje
 

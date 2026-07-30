@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "https://licznik.jfilipek.com",
+  "homepage": "https://your-meter.jfilipek.com",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

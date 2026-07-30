@@ -1,4 +1,4 @@
-licznik-api.jfilipek.com {
+your-meter-api.jfilipek.com, licznik-api.jfilipek.com {
 	encode zstd gzip
 
 	header {

@@ -1,5 +1,5 @@
 param(
-    [string]$ApiUrl = "https://licznik-api.jfilipek.com",
+    [string]$ApiUrl = "https://your-meter-api.jfilipek.com",
     [string]$Username = "jakub.filipek",
     [Parameter(Mandatory = $true)]
     [securestring]$Password,

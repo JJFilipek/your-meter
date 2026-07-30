@@ -12,7 +12,8 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: Production
       ConnectionStrings__DefaultConnection: Data Source=/data/your-meter.db
-      Cors__AllowedOrigins__0: https://licznik.jfilipek.com
+      Cors__AllowedOrigins__0: https://your-meter.jfilipek.com
+      Cors__AllowedOrigins__1: https://licznik.jfilipek.com
       Authentication__CookieDomain: ${YOUR_METER_COOKIE_DOMAIN:-}
       Authentication__BootstrapUsername: ${YOUR_METER_ADMIN_USERNAME:-jakub.filipek}
       Authentication__BootstrapEmail: ${YOUR_METER_ADMIN_EMAIL:-jakub.filipek@gmail.com}
