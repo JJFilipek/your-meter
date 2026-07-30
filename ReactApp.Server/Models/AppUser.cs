@@ -8,6 +8,7 @@ public sealed class AppUser
     public required string Email { get; set; }
     public required string PasswordHash { get; set; }
     public bool IsActive { get; set; } = true;
+    public bool IsReadOnly { get; set; }
     public int SessionVersion { get; set; } = 1;
     public int FailedLoginCount { get; set; }
     public DateTime? LockoutEndUtc { get; set; }

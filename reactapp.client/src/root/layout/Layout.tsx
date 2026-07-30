@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Outlet, NavLink, useLocation, useNavigate } from 'react-router-dom'
-import { Container, Nav, Navbar, Image, NavDropdown } from 'react-bootstrap'
+import { Alert, Container, Nav, Navbar, Image, NavDropdown } from 'react-bootstrap'
 import * as Fa from 'react-icons/fa'
 import { useAuth } from '../../auth'
 
@@ -131,10 +131,14 @@ export function Layout() {
                                 className="user-menu"
                                 aria-label="Menu użytkownika"
                             >
-                                <NavDropdown.Item as={NavLink} to="/account">
-                                    <Fa.FaCog className="me-2" /> Ustawienia konta
-                                </NavDropdown.Item>
-                                <NavDropdown.Divider />
+                                {!user?.isReadOnly && (
+                                    <>
+                                        <NavDropdown.Item as={NavLink} to="/account">
+                                            <Fa.FaCog className="me-2" /> Ustawienia konta
+                                        </NavDropdown.Item>
+                                        <NavDropdown.Divider />
+                                    </>
+                                )}
                                 <NavDropdown.Item onClick={() => void handleLogout()} className="text-danger">
                                     <Fa.FaSignOutAlt className="me-2" /> Wyloguj się
                                 </NavDropdown.Item>
@@ -144,6 +148,11 @@ export function Layout() {
                 </Navbar>
 
                 <Container fluid className="page-content px-4 pt-3">
+                    {user?.isReadOnly && (
+                        <Alert variant="info" className="mb-3">
+                            Konto demonstracyjne działa tylko w trybie odczytu.
+                        </Alert>
+                    )}
                     <Outlet />
                 </Container>
 

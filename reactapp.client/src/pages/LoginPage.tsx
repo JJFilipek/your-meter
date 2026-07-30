@@ -6,6 +6,11 @@ import { type FormikHelpers } from 'formik'
 import { useAuth } from '../auth'
 import { LoginForm, type LoginValues } from '../components/auth/LoginForm'
 
+const demoCredentials: LoginValues = {
+  username: 'demo',
+  password: 'LicznikDemo2026!',
+}
+
 export function LoginPage() {
   const navigate = useNavigate()
   const { login } = useAuth()
@@ -42,7 +47,15 @@ export function LoginPage() {
                 <p className="text-muted mb-0">Zaloguj się kontem zarządzanym przez backend.</p>
               </div>
               {error && <Alert variant="danger">{error}</Alert>}
-              <LoginForm onSubmit={handleLogin} />
+              <Alert variant="info">
+                <div className="fw-semibold mb-2">Konto testowe tylko do odczytu</div>
+                <div>Login: <code>{demoCredentials.username}</code></div>
+                <div>Hasło: <code>{demoCredentials.password}</code></div>
+              </Alert>
+              <LoginForm
+                onSubmit={handleLogin}
+                initialValues={demoCredentials}
+              />
             </Card.Body>
           </Card>
         </Col>

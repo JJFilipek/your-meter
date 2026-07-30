@@ -17,6 +17,9 @@ services:
       Authentication__BootstrapUsername: ${TWOJ_LICZNIK_ADMIN_USERNAME:-jakub.filipek}
       Authentication__BootstrapEmail: ${TWOJ_LICZNIK_ADMIN_EMAIL:-jakub.filipek@gmail.com}
       Authentication__BootstrapPassword: ${TWOJ_LICZNIK_ADMIN_PASSWORD:-}
+      Authentication__DemoUsername: demo
+      Authentication__DemoEmail: demo@jfilipek.com
+      Authentication__DemoPassword: LicznikDemo2026!
       Simulation__Enabled: "true"
       Simulation__SeedDefaults: "false"
       Simulation__BackfillDays: "30"

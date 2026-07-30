@@ -21,6 +21,7 @@ import {
     type CreateSimulatorRequest,
     type Simulator,
 } from '../api/meters'
+import { useAuth } from '../auth'
 
 const tariffDefaults: Record<Simulator['tariff'], number> = {
     G11: 2.4,
@@ -59,6 +60,7 @@ const numberFormatter = new Intl.NumberFormat('pl-PL', {
 })
 
 export default function MeterLabPage() {
+    const { user } = useAuth()
     const [simulators, setSimulators] = useState<Simulator[]>([])
     const [form, setForm] = useState<CreateSimulatorRequest>(initialForm)
     const [isLoading, setIsLoading] = useState(true)
@@ -248,7 +250,8 @@ export default function MeterLabPage() {
                 <Card.Header className="fw-semibold">Nowy symulator</Card.Header>
                 <Card.Body>
                     <Form onSubmit={handleCreate}>
-                        <Row className="g-3">
+                        <fieldset disabled={user?.isReadOnly}>
+                            <Row className="g-3">
                             <Col lg={4} md={6}>
                                 <Form.Group>
                                     <Form.Label>Nazwa</Form.Label>
@@ -407,14 +410,15 @@ export default function MeterLabPage() {
                                     </Form.Select>
                                 </Form.Group>
                             </Col>
-                        </Row>
-                        <div className="d-flex justify-content-end mt-3">
-                            <Button type="submit" variant="success" disabled={isSubmitting}>
-                                {isSubmitting
-                                    ? <><Spinner size="sm" className="me-2" />Tworzenie</>
-                                    : <><Fa.FaPlus className="me-2" />Utwórz symulator</>}
-                            </Button>
-                        </div>
+                            </Row>
+                            <div className="d-flex justify-content-end mt-3">
+                                <Button type="submit" variant="success" disabled={isSubmitting}>
+                                    {isSubmitting
+                                        ? <><Spinner size="sm" className="me-2" />Tworzenie</>
+                                        : <><Fa.FaPlus className="me-2" />Utwórz symulator</>}
+                                </Button>
+                            </div>
+                        </fieldset>
                     </Form>
                 </Card.Body>
             </Card>
@@ -475,7 +479,7 @@ export default function MeterLabPage() {
                                             size="sm"
                                             variant={simulator.isEnabled ? 'outline-warning' : 'outline-success'}
                                             className="me-2"
-                                            disabled={busyId === simulator.id}
+                                            disabled={busyId === simulator.id || user?.isReadOnly}
                                             onClick={() => void handleStateChange(simulator)}
                                         >
                                             {simulator.isEnabled ? 'Wstrzymaj' : 'Wznów'}
@@ -483,7 +487,7 @@ export default function MeterLabPage() {
                                         <Button
                                             size="sm"
                                             variant="outline-danger"
-                                            disabled={busyId === simulator.id}
+                                            disabled={busyId === simulator.id || user?.isReadOnly}
                                             onClick={() => openDeleteModal(simulator)}
                                         >
                                             Usuń trwale

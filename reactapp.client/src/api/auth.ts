@@ -4,6 +4,7 @@ export type AuthUser = {
     id: string
     username: string
     email: string
+    isReadOnly: boolean
 }
 
 export const getCurrentUser = () =>

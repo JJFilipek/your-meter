@@ -37,6 +37,14 @@ export function AccountSettingsPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
 
+  if (user?.isReadOnly) {
+    return (
+      <Alert variant="info" className="mt-4">
+        Konto demonstracyjne nie może zmieniać profilu ani hasła.
+      </Alert>
+    );
+  }
+
   const handleProfileSubmit = async (
     values: ProfileValues,
     { setSubmitting, resetForm }: FormikHelpers<ProfileValues>

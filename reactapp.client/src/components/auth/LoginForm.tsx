@@ -18,12 +18,16 @@ export type LoginValues = {
 
 interface LoginFormProps {
   onSubmit: (values: LoginValues, actions: FormikHelpers<LoginValues>) => void;
+  initialValues?: LoginValues;
 }
 
-export function LoginForm({ onSubmit }: LoginFormProps) {
+export function LoginForm({
+  onSubmit,
+  initialValues = { username: '', password: '' },
+}: LoginFormProps) {
   return (
     <Formik
-      initialValues={{ username: '', password: '' }}
+      initialValues={initialValues}
       validationSchema={LoginSchema}
       onSubmit={onSubmit}
     >

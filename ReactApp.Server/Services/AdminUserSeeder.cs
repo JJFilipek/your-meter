@@ -15,12 +15,19 @@ public sealed class AdminUserSeeder(
 {
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
-        if (await dbContext.Users.AnyAsync(cancellationToken))
+        var authenticationOptions = options.Value;
+        if (!await dbContext.Users.AnyAsync(cancellationToken))
         {
-            return;
+            await SeedAdministratorAsync(authenticationOptions, cancellationToken);
         }
 
-        var authenticationOptions = options.Value;
+        await SeedDemoUserAsync(authenticationOptions, cancellationToken);
+    }
+
+    private async Task SeedAdministratorAsync(
+        AppAuthenticationOptions authenticationOptions,
+        CancellationToken cancellationToken)
+    {
         if (string.IsNullOrWhiteSpace(authenticationOptions.BootstrapPassword))
         {
             throw new InvalidOperationException(
@@ -43,6 +50,78 @@ public sealed class AdminUserSeeder(
         await dbContext.SaveChangesAsync(cancellationToken);
         logger.LogInformation(
             "Utworzono początkowe konto administratora {Username}.",
+            user.Username);
+    }
+
+    private async Task SeedDemoUserAsync(
+        AppAuthenticationOptions authenticationOptions,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(authenticationOptions.DemoUsername)
+            || string.IsNullOrWhiteSpace(authenticationOptions.DemoPassword))
+        {
+            return;
+        }
+
+        var username = authenticationOptions.DemoUsername.Trim();
+        var normalizedUsername = NormalizeUsername(username);
+        var user = await dbContext.Users.SingleOrDefaultAsync(
+            item => item.NormalizedUsername == normalizedUsername,
+            cancellationToken);
+
+        if (user is null)
+        {
+            user = new AppUser
+            {
+                Username = username,
+                NormalizedUsername = normalizedUsername,
+                Email = authenticationOptions.DemoEmail.Trim(),
+                PasswordHash = string.Empty,
+                IsReadOnly = true
+            };
+            user.PasswordHash = passwordHasher.HashPassword(
+                user,
+                authenticationOptions.DemoPassword);
+            dbContext.Users.Add(user);
+            await dbContext.SaveChangesAsync(cancellationToken);
+            logger.LogInformation(
+                "Utworzono konto demonstracyjne {Username}.",
+                user.Username);
+            return;
+        }
+
+        var passwordVerification = passwordHasher.VerifyHashedPassword(
+            user,
+            user.PasswordHash,
+            authenticationOptions.DemoPassword);
+        var requiresUpdate = !user.IsReadOnly
+            || !user.IsActive
+            || user.Username != username
+            || user.Email != authenticationOptions.DemoEmail.Trim()
+            || passwordVerification is not PasswordVerificationResult.Success;
+        if (!requiresUpdate)
+        {
+            return;
+        }
+
+        user.Username = username;
+        user.Email = authenticationOptions.DemoEmail.Trim();
+        user.IsActive = true;
+        user.IsReadOnly = true;
+        user.FailedLoginCount = 0;
+        user.LockoutEndUtc = null;
+        user.SessionVersion++;
+        user.UpdatedAtUtc = DateTime.UtcNow;
+        if (passwordVerification is not PasswordVerificationResult.Success)
+        {
+            user.PasswordHash = passwordHasher.HashPassword(
+                user,
+                authenticationOptions.DemoPassword);
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
+        logger.LogInformation(
+            "Zaktualizowano konto demonstracyjne {Username}.",
             user.Username);
     }
 

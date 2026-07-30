@@ -88,8 +88,11 @@ builder.Services
             var userIdClaim = context.Principal?.FindFirstValue(ClaimTypes.NameIdentifier);
             var sessionVersionClaim = context.Principal?.FindFirstValue(
                 AppClaimTypes.SessionVersion);
+            var readOnlyClaim = context.Principal?.FindFirstValue(
+                AppClaimTypes.ReadOnly);
             if (!Guid.TryParse(userIdClaim, out var userId)
-                || !int.TryParse(sessionVersionClaim, out var sessionVersion))
+                || !int.TryParse(sessionVersionClaim, out var sessionVersion)
+                || !bool.TryParse(readOnlyClaim, out var isReadOnly))
             {
                 context.RejectPrincipal();
                 await context.HttpContext.SignOutAsync();
@@ -101,7 +104,8 @@ builder.Services
             var isSessionValid = await dbContext.Users
                 .AnyAsync(user => user.Id == userId
                     && user.IsActive
-                    && user.SessionVersion == sessionVersion);
+                    && user.SessionVersion == sessionVersion
+                    && user.IsReadOnly == isReadOnly);
             if (!isSessionValid)
             {
                 context.RejectPrincipal();
@@ -211,6 +215,33 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    var isSafeMethod = HttpMethods.IsGet(context.Request.Method)
+        || HttpMethods.IsHead(context.Request.Method)
+        || HttpMethods.IsOptions(context.Request.Method);
+    var isApiRequest = context.Request.Path.StartsWithSegments("/api");
+    var isLogoutRequest = context.Request.Path.Equals(
+        "/api/auth/logout",
+        StringComparison.OrdinalIgnoreCase);
+    var isReadOnlyUser = string.Equals(
+        context.User.FindFirstValue(AppClaimTypes.ReadOnly),
+        bool.TrueString,
+        StringComparison.OrdinalIgnoreCase);
+
+    if (isApiRequest && !isSafeMethod && !isLogoutRequest && isReadOnlyUser)
+    {
+        context.Response.StatusCode = StatusCodes.Status403Forbidden;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            title = "Konto demonstracyjne działa tylko w trybie odczytu.",
+            status = StatusCodes.Status403Forbidden
+        });
+        return;
+    }
+
+    await next();
+});
 app.UseAuthorization();
 
 app.MapHealthChecks("/health");

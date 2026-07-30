@@ -11,7 +11,11 @@ public sealed class LoginRequest
     public required string Password { get; init; }
 }
 
-public sealed record AuthUserDto(Guid Id, string Username, string Email);
+public sealed record AuthUserDto(
+    Guid Id,
+    string Username,
+    string Email,
+    bool IsReadOnly);
 
 public sealed class UpdateProfileRequest
 {

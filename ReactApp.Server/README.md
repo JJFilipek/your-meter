@@ -28,6 +28,12 @@ Hasło jest używane wyłącznie do utworzenia pierwszego konta i trafia do bazy
 hash. Kolejne uruchomienia korzystają z istniejącego użytkownika. Po utworzeniu
 konta warto usunąć wartość `Authentication__BootstrapPassword` z konfiguracji.
 
+Opcjonalne konto demonstracyjne jest tworzone i utrzymywane na podstawie ustawień
+`Authentication__DemoUsername`, `Authentication__DemoEmail` oraz
+`Authentication__DemoPassword`. Ma ono wymuszony tryb tylko do odczytu: może
+przeglądać dane, ale nie może tworzyć, zmieniać ani usuwać rekordów, a także
+zmieniać własnego profilu lub hasła.
+
 Łańcuch połączenia można nadpisać zmienną środowiskową:
 
 ```powershell

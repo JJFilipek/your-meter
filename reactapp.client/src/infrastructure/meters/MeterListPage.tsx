@@ -11,6 +11,7 @@ import { Formik, Form as FormikForm, Field, ErrorMessage, FormikHelpers } from '
 import * as Yup from 'yup'
 import { meterValidationSchema } from '../../validations/schemas'
 import { createMeter, getMeters } from '../../api/meters'
+import { useAuth } from '../../auth'
 
 const statusColors: Record<string, string> = {
     'Sprawny': '#357951',
@@ -44,6 +45,7 @@ const greenDotIcon = divIcon({
 })
 
 export const Meters = () => {
+    const { user } = useAuth()
     const [meters, setMeters] = useState<Meter[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [loadError, setLoadError] = useState<string | null>(null)
@@ -131,6 +133,7 @@ export const Meters = () => {
                 <Button
                     variant="success"
                     style={{ height: '40px', whiteSpace: 'nowrap' }}
+                    disabled={user?.isReadOnly}
                     onClick={() => setShowModal(true)}
                 >
                     Dodaj licznik

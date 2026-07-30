@@ -191,7 +191,8 @@ public sealed class AuthController(
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(AppClaimTypes.SessionVersion, user.SessionVersion.ToString())
+                new Claim(AppClaimTypes.SessionVersion, user.SessionVersion.ToString()),
+                new Claim(AppClaimTypes.ReadOnly, user.IsReadOnly.ToString())
             ],
             CookieAuthenticationDefaults.AuthenticationScheme);
         var principal = new ClaimsPrincipal(identity);
@@ -214,5 +215,5 @@ public sealed class AuthController(
         });
 
     private static AuthUserDto ToDto(AppUser user) =>
-        new(user.Id, user.Username, user.Email);
+        new(user.Id, user.Username, user.Email, user.IsReadOnly);
 }
