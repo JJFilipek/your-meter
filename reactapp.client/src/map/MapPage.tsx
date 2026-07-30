@@ -39,7 +39,7 @@ function FlyToMeter({ lat, lng }: { lat: number; lng: number }) {
     map.flyTo([lat, lng], 16)
     return null
 }
-export default function isAuthenticatedMapPage() {
+export default function MapPage() {
     const [query, setQuery] = useState('')
     const [activeMeter, setActiveMeter] = useState<string | null>(null)
     const markerRefs = useRef<Record<string, L.Marker>>({})

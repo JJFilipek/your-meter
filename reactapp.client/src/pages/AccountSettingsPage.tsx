@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Card, Form, Button, Alert, Tab, Tabs } from 'react-bootstrap';
 import { FaUser, FaEnvelope, FaLock, FaKey } from 'react-icons/fa';
-import { Formik, Field, ErrorMessage } from 'formik';
+import { Formik, Field, ErrorMessage, type FormikHelpers } from 'formik';
 import * as Yup from 'yup';
 import { useAuth } from '../auth';
 import { usernameValidation, emailValidation, passwordValidation } from '../validations/schemas';
@@ -19,30 +19,47 @@ const PasswordSchema = Yup.object().shape({
       .required('Potwierdzenie hasła jest wymagane'),
 });
 
+type ProfileValues = {
+  username: string;
+  email: string;
+};
+
+type PasswordValues = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
 export function AccountSettingsPage() {
   const { user, updateUser } = useAuth();
   const [message, setMessage] = useState<{ type: 'success' | 'danger'; text: string } | null>(null);
   const [activeTab, setActiveTab] = useState('profile');
 
-  const handleProfileSubmit = async (values: any, { setSubmitting, resetForm }: any) => {
+  const handleProfileSubmit = async (
+    values: ProfileValues,
+    { setSubmitting, resetForm }: FormikHelpers<ProfileValues>
+  ) => {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       updateUser(values);
       setMessage({ type: 'success', text: 'Dane zostały zaktualizowane!' });
       resetForm();
-    } catch (error) {
+    } catch {
       setMessage({ type: 'danger', text: 'Wystąpił błąd podczas aktualizacji danych.' });
     } finally {
       setSubmitting(false);
     }
   };
 
-  const handlePasswordSubmit = async (_values: any, { setSubmitting, resetForm }: any) => {
+  const handlePasswordSubmit = async (
+    _values: PasswordValues,
+    { setSubmitting, resetForm }: FormikHelpers<PasswordValues>
+  ) => {
     try {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       setMessage({ type: 'success', text: 'Hasło zostało zmienione!' });
       resetForm();
-    } catch (error) {
+    } catch {
       setMessage({ type: 'danger', text: 'Wystąpił błąd podczas zmiany hasła.' });
     } finally {
       setSubmitting(false);

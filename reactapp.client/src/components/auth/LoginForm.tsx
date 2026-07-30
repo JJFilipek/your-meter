@@ -1,4 +1,4 @@
-import { Formik, Form, Field, ErrorMessage } from 'formik';
+import { Formik, Form, Field, ErrorMessage, type FormikHelpers } from 'formik';
 import { Button, Alert } from 'react-bootstrap';
 import * as Yup from 'yup';
 import { FaUser, FaLock } from 'react-icons/fa';
@@ -11,8 +11,13 @@ const LoginSchema = Yup.object().shape({
     .min(6, 'Hasło musi mieć przynajmniej 6 znaków'),
 });
 
+export type LoginValues = {
+  username: string;
+  password: string;
+};
+
 interface LoginFormProps {
-  onSubmit: (values: any, actions: any) => void;
+  onSubmit: (values: LoginValues, actions: FormikHelpers<LoginValues>) => void;
   onForgotPassword: () => void;
   onRegister: () => void;
 }

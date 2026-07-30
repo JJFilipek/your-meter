@@ -1,4 +1,4 @@
-import { Formik, Form, Field, ErrorMessage } from 'formik';
+import { Formik, Form, Field, ErrorMessage, type FormikHelpers } from 'formik';
 import { Button, Alert, Form as BootstrapForm } from 'react-bootstrap';
 import * as Yup from 'yup';
 import { FaEnvelope, FaArrowLeft } from 'react-icons/fa';
@@ -13,13 +13,20 @@ interface ForgotPasswordFormProps {
   onBackToLogin?: () => void;
 }
 
+type ForgotPasswordValues = {
+  email: string;
+};
+
 export function ForgotPasswordForm({ onSuccess, onBackToLogin }: ForgotPasswordFormProps) {
-  const handleSubmit = async (values: any, { setSubmitting, setStatus }: any) => {
+  const handleSubmit = async (
+    values: ForgotPasswordValues,
+    { setSubmitting, setStatus }: FormikHelpers<ForgotPasswordValues>
+  ) => {
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
       setStatus({ type: 'success', message: `Instrukcje resetowania hasła zostały wysłane na adres ${values.email}. Sprawdź swoją skrzynkę pocztową.` });
       if (onSuccess) onSuccess();
-    } catch (error) {
+    } catch {
       setStatus({ type: 'error', message: 'Wystąpił błąd podczas wysyłania instrukcji resetowania hasła. Spróbuj ponownie.' });
     } finally {
       setSubmitting(false);

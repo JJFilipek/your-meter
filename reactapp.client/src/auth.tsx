@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, ReactNode } from 'react';
 
 type User = {
   id: string;
@@ -16,6 +16,33 @@ export type AuthContextType = {
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
+type AuthState = {
+  isAuthenticated: boolean;
+  user: User | null;
+};
+
+const readStoredAuth = (): AuthState => {
+  if (localStorage.getItem('isAuthenticated') !== 'true') {
+    return { isAuthenticated: false, user: null };
+  }
+
+  try {
+    const storedUser = localStorage.getItem('user');
+    if (!storedUser) {
+      return { isAuthenticated: false, user: null };
+    }
+
+    return {
+      isAuthenticated: true,
+      user: JSON.parse(storedUser) as User,
+    };
+  } catch {
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('user');
+    return { isAuthenticated: false, user: null };
+  }
+};
+
 export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -25,21 +52,7 @@ export const useAuth = (): AuthContextType => {
 };
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(true); // zmiana utorzacji startowej
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const storedAuth = localStorage.getItem('isAuthenticated');
-    const storedUser = localStorage.getItem('user');
-
-    if (storedAuth === 'true' && storedUser) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(storedUser));
-    } else {
-      // TESTOWO dla GH Pages – auto login na starcie:
-      login();
-    }
-  }, []);
+  const [authState, setAuthState] = useState<AuthState>(readStoredAuth);
 
   const login = (userData?: Partial<User>) => {
     const defaultUser: User = {
@@ -48,28 +61,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       email: 'jakub.filipek@gmail.com',
       ...userData,
     };
-    setIsAuthenticated(true);
-    setUser(defaultUser);
+    setAuthState({ isAuthenticated: true, user: defaultUser });
     localStorage.setItem('isAuthenticated', 'true');
     localStorage.setItem('user', JSON.stringify(defaultUser));
   };
 
   const logout = () => {
-    setIsAuthenticated(false);
-    setUser(null);
+    setAuthState({ isAuthenticated: false, user: null });
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('user');
   };
 
   const updateUser = (updates: Partial<User>) => {
-    if (!user) return;
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
+    if (!authState.user) return;
+    const updatedUser = { ...authState.user, ...updates };
+    setAuthState((current) => ({ ...current, user: updatedUser }));
     localStorage.setItem('user', JSON.stringify(updatedUser));
   };
 
   return (
-      <AuthContext.Provider value={{ isAuthenticated, user, login, logout, updateUser }}>
+      <AuthContext.Provider value={{
+        isAuthenticated: authState.isAuthenticated,
+        user: authState.user,
+        login,
+        logout,
+        updateUser,
+      }}>
         {children}
       </AuthContext.Provider>
   );

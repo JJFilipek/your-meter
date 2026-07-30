@@ -6,20 +6,20 @@ import { useAuth } from '../auth';
 import { LoginForm } from '../components/auth/LoginForm';
 import { RegisterForm } from '../components/auth/RegisterForm';
 import { ForgotPasswordForm } from '../components/auth/ForgotPasswordForm';
+import { type FormikHelpers } from 'formik';
+import { type LoginValues } from '../components/auth/LoginForm';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
-  const from = location.state?.from?.pathname || '/your-meter';
+  const from = location.state?.from?.pathname || '/home';
   const [activeTab, setActiveTab] = useState('login');
   const [loginStatus, setLoginStatus] = useState<{type?: string, message?: string}>({});
 
-  const handleLogin = (values: any, { setSubmitting}: any) => {
+  const handleLogin = (values: LoginValues, { setSubmitting }: FormikHelpers<LoginValues>) => {
     setTimeout(() => {
-      console.log('Login attempt with:', values);
-      
-      login();
+      login({ username: values.username });
       setLoginStatus({ type: 'success', message: 'Zalogowano pomyślnie!' });
       setSubmitting(false);
       

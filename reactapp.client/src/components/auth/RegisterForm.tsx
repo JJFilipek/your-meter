@@ -1,4 +1,4 @@
-import { Formik, Form, Field, ErrorMessage } from 'formik';
+import { Formik, Form, Field, ErrorMessage, type FormikHelpers } from 'formik';
 import { Button, Alert, Form as BootstrapForm } from 'react-bootstrap';
 import * as Yup from 'yup';
 import { FaUser, FaEnvelope, FaLock, FaArrowRight, FaUserPlus } from 'react-icons/fa';
@@ -20,8 +20,19 @@ type RegisterFormProps = {
     onSwitchToLogin: () => void;
 };
 
+type RegisterValues = {
+    username: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+    acceptTerms: boolean;
+};
+
 export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) {
-    const handleSubmit = async (_values: any, { setSubmitting, resetForm }: any) => {
+    const handleSubmit = async (
+        _values: RegisterValues,
+        { setSubmitting, resetForm }: FormikHelpers<RegisterValues>
+    ) => {
         try {
             await new Promise(resolve => setTimeout(resolve, 1000));
             onSuccess();

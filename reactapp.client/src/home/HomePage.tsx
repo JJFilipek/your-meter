@@ -1,5 +1,5 @@
 import { Container, Row, Col, Card, Breadcrumb } from 'react-bootstrap'
-import { Bar, Doughnut } from 'react-chartjs-2'
+import { Chart, Doughnut } from 'react-chartjs-2'
 import {
     Chart as ChartJS,
     CategoryScale,
@@ -10,7 +10,9 @@ import {
     PointElement,
     Tooltip,
     Legend,
-    Title
+    Title,
+    type ChartData,
+    type ChartOptions
 } from 'chart.js'
 import * as Fa from 'react-icons/fa'
 import './HomePage.css'
@@ -47,33 +49,33 @@ const statusCards = [
     { title: 'Nieaktywne powyżej 7 dni', value: 1, color: '#5c636a' }
 ] as const
 
-const usageChartData = {
+const usageChartData: ChartData<'bar' | 'line', number[], string> = {
     labels: ['Pon', 'Wt', 'Śr', 'Czw', 'Pt', 'Sob', 'Ndz'],
     datasets: [
         { type: 'bar' as const, label: 'Zużycie (kWh)', data: [130, 150, 125, 160, 140, 170, 180], backgroundColor: '#660032', barThickness: 40 },
         { type: 'line' as const, label: 'Trend', data: [130, 140, 135, 145, 142, 155, 160], borderColor: '#cc3366', borderWidth: 2, fill: false, pointRadius: 0, tension: 0.4 }
     ]
-} as any
+}
 
-const usageChartOptions = {
+const usageChartOptions: ChartOptions<'bar' | 'line'> = {
     responsive: true,
     maintainAspectRatio: false,
     aspectRatio: 2,
     plugins: { legend: { position: 'top' } },
     scales: { y: { beginAtZero: true } }
-} as any
+}
 
-const typeChartData = {
+const typeChartData: ChartData<'doughnut', number[], string> = {
     labels: ['Biuro handlowe', 'Utrzymanie Ruchu', 'Hala Storczyk', 'Hala Róża'],
     datasets: [{ data: [8, 22, 30, 40], backgroundColor: ['#330018', '#550029', '#7d003c', '#aa004f'], borderWidth: 1,  borderColor: 'rgba(255, 255, 255, 0.15)' }]
-} as any
-const typeChartOptions = {
+}
+const typeChartOptions: ChartOptions<'doughnut'> = {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
         legend: { position: 'bottom' },
     }
-} as any
+}
 
 export default function App(): React.JSX.Element {
     return (
@@ -89,8 +91,8 @@ export default function App(): React.JSX.Element {
             <Row className="g-4 mb-5">
                 <Col lg={8}>
                     <Row className="g-4">
-                        {metrics.map((m, i) => (
-                            <Col md={6} key={i}>
+                        {metrics.map((m) => (
+                            <Col md={6} key={m.title}>
                                 <Card className="metric-card h-100">
                                     <Card.Body
                                         className="d-flex flex-column align-items-start"
@@ -112,8 +114,8 @@ export default function App(): React.JSX.Element {
                                 <Fa.FaInfoCircle className="me-2 icon-accent" /> Informacje
                             </h5>
                             <ul className="mb-0 ps-3 small">
-                                {infos.map((info, j) => (
-                                    <li key={j}>
+                                {infos.map((info) => (
+                                    <li key={info.text}>
                                         <info.icon className="me-2 text-muted" /> {info.text}
                                     </li>
                                 ))}
@@ -129,7 +131,7 @@ export default function App(): React.JSX.Element {
                         <Card.Body className="h-100 d-flex flex-column">
                             <div className="text-uppercase small fw-bold mb-2">Zużycie tygodniowe</div>
                             <div style={{ height: 450, minHeight: 150 }}>
-                                <Bar data={usageChartData} options={usageChartOptions} />
+                                <Chart type="bar" data={usageChartData} options={usageChartOptions} />
                             </div>
                         </Card.Body>
                     </Card>
@@ -151,8 +153,8 @@ export default function App(): React.JSX.Element {
                 <Fa.FaPlug className="me-2 icon-accent" /> Stan liczników
             </h3>
             <Row className="g-4 mb-5">
-                {statusCards.map((s, k) => (
-                    <Col md={3} key={k}>
+                {statusCards.map((s) => (
+                    <Col sm={6} xl={3} key={s.title}>
                         <Card
                             className="shadow border-0 text-white h-100"
                             style={{ backgroundColor: s.color }}

@@ -28,7 +28,7 @@ const dummyRows = Array.from({ length: 5 * 24 }, (_, i) => {
     const timestamp = baseDate.toISOString().slice(0, 16).replace("T", " ")
     const aPlus = 1000 + i * 0.3
     const aMinus = 200 + i * 1.2
-    const row: any = {
+    const row: Record<string, string> = {
         timestamp,
         aPlus: aPlus.toFixed(5),
         aMinus: aMinus.toFixed(5)

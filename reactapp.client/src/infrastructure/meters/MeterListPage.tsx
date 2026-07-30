@@ -31,7 +31,7 @@ const headers = [
 
 const greenDotIcon = divIcon({
     className: '',
-    html: `<div style="D
+    html: `<div style="
         width: 16px;
         height: 16px;
         border-radius: 50%;
@@ -77,8 +77,12 @@ export const Meters = () => {
         return result
     }, [filters, sortKey, sortDirection])
 
-    const totalPages = Math.ceil(filteredAndSorted.length / rowsPerPage)
+    const totalPages = Math.max(1, Math.ceil(filteredAndSorted.length / rowsPerPage))
     const pagedMeters = filteredAndSorted.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage)
+
+    useEffect(() => {
+        setCurrentPage(1)
+    }, [filters, sortKey, sortDirection])
 
     const toggleSort = (key: string) => {
         if (sortKey !== key) {
@@ -115,37 +119,39 @@ export const Meters = () => {
                     Dodaj licznik
                 </Button>
             </div>
-            <Table striped bordered hover>
-                <thead>
-                    <tr>
-                        {headers.map(({ key, label }) => (
-                            <th
-                                key={key}
-                                style={{ cursor: 'pointer' }}
-                                onClick={() => toggleSort(key)}
-                            >
-                                {label}{' '}
-                                {sortKey === key
-                                    ? sortDirection === 'asc'
-                                        ? '↑'
-                                        : sortDirection === 'desc'
-                                            ? '↓'
-                                            : ''
-                                    : ''}
-                            </th>
+            <div className="table-responsive mb-3">
+                <Table striped bordered hover className="mb-0">
+                    <thead>
+                        <tr>
+                            {headers.map(({ key, label }) => (
+                                <th
+                                    key={key}
+                                    style={{ cursor: 'pointer' }}
+                                    onClick={() => toggleSort(key)}
+                                >
+                                    {label}{' '}
+                                    {sortKey === key
+                                        ? sortDirection === 'asc'
+                                            ? '↑'
+                                            : sortDirection === 'desc'
+                                                ? '↓'
+                                                : ''
+                                        : ''}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {pagedMeters.map((meter) => (
+                            <MeterItem
+                                key={meter.serialNo}
+                                meter={meter}
+                                statusColors={statusColors}
+                            />
                         ))}
-                    </tr>
-                </thead>
-                <tbody>
-                    {pagedMeters.map((meter, index) => (
-                        <MeterItem 
-                            key={index} 
-                            meter={meter} 
-                            statusColors={statusColors} 
-                        />
-                    ))}
-                </tbody>
-            </Table>
+                    </tbody>
+                </Table>
+            </div>
             <div className="d-flex justify-content-end align-items-center" style={{ gap: "0.5rem" }}>
                 <Button
                     variant="outline-secondary"
@@ -244,15 +250,11 @@ export function AddMeterModal({ show, onClose }: { show: boolean, onClose: () =>
         }
     };
     function LocationPicker() {
-        const map = useMapEvents({
+        useMapEvents({
             click(e) {
                 setLocation({ lat: e.latlng.lat, lng: e.latlng.lng })
             }
         });
-
-        useEffect(() => {
-            map.flyTo([location.lat, location.lng], map.getZoom());
-        }, [location, map]);
 
         return location ? <Marker position={[location.lat, location.lng]} icon={greenDotIcon} /> : null;
     }
