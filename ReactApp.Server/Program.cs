@@ -224,12 +224,19 @@ app.Use(async (context, next) =>
     var isLogoutRequest = context.Request.Path.Equals(
         "/api/auth/logout",
         StringComparison.OrdinalIgnoreCase);
+    var isLoginRequest = context.Request.Path.Equals(
+        "/api/auth/login",
+        StringComparison.OrdinalIgnoreCase);
     var isReadOnlyUser = string.Equals(
         context.User.FindFirstValue(AppClaimTypes.ReadOnly),
         bool.TrueString,
         StringComparison.OrdinalIgnoreCase);
 
-    if (isApiRequest && !isSafeMethod && !isLogoutRequest && isReadOnlyUser)
+    if (isApiRequest
+        && !isSafeMethod
+        && !isLoginRequest
+        && !isLogoutRequest
+        && isReadOnlyUser)
     {
         context.Response.StatusCode = StatusCodes.Status403Forbidden;
         await context.Response.WriteAsJsonAsync(new
