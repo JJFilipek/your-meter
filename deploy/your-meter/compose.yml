@@ -1,9 +1,9 @@
-name: twoj-licznik
+name: your-meter
 
 services:
   api:
-    container_name: twoj-licznik-api
-    image: twoj-licznik-api:latest
+    container_name: your-meter-api
+    image: your-meter-api:latest
     build:
       context: ../../ReactApp.Server
       dockerfile: Dockerfile
@@ -11,12 +11,12 @@ services:
     user: "1000:1000"
     environment:
       ASPNETCORE_ENVIRONMENT: Production
-      ConnectionStrings__DefaultConnection: Data Source=/data/twoj-licznik.db
+      ConnectionStrings__DefaultConnection: Data Source=/data/your-meter.db
       Cors__AllowedOrigins__0: https://licznik.jfilipek.com
-      Authentication__CookieDomain: ${TWOJ_LICZNIK_COOKIE_DOMAIN:-}
-      Authentication__BootstrapUsername: ${TWOJ_LICZNIK_ADMIN_USERNAME:-jakub.filipek}
-      Authentication__BootstrapEmail: ${TWOJ_LICZNIK_ADMIN_EMAIL:-jakub.filipek@gmail.com}
-      Authentication__BootstrapPassword: ${TWOJ_LICZNIK_ADMIN_PASSWORD:-}
+      Authentication__CookieDomain: ${YOUR_METER_COOKIE_DOMAIN:-}
+      Authentication__BootstrapUsername: ${YOUR_METER_ADMIN_USERNAME:-jakub.filipek}
+      Authentication__BootstrapEmail: ${YOUR_METER_ADMIN_EMAIL:-jakub.filipek@gmail.com}
+      Authentication__BootstrapPassword: ${YOUR_METER_ADMIN_PASSWORD:-}
       Authentication__DemoUsername: demo
       Authentication__DemoEmail: demo@jfilipek.com
       Authentication__DemoPassword: LicznikDemo2026!
@@ -26,7 +26,7 @@ services:
       Simulation__HistoricalIntervalMinutes: "15"
       Simulation__LiveIntervalSeconds: "5"
     volumes:
-      - ${TWOJ_LICZNIK_DATA_DIR:-./data}:/data
+      - ${YOUR_METER_DATA_DIR:-./data}:/data
     expose:
       - "8080"
     networks:

@@ -411,7 +411,7 @@ public sealed class MeterSimulationWorker(
         {
             SerialNumber = definition.SerialNumber,
             Name = definition.Name,
-            Manufacturer = "Symulator Twoj Licznik",
+            Manufacturer = "Your Meter Simulator",
             Model = $"Profil {definition.Tariff}",
             FirmwareVersion = "1.0.0",
             Tariff = definition.Tariff,

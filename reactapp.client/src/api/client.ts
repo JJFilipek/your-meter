@@ -21,7 +21,7 @@ export async function apiRequest<T>(
         signal: options?.signal ?? AbortSignal.timeout(requestTimeoutMs),
         headers: {
             Accept: 'application/json',
-            'X-App-Request': 'Twoj-Licznik',
+            'X-App-Request': 'Your-Meter',
             ...options?.headers,
         },
     })

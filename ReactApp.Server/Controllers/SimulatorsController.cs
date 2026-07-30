@@ -122,7 +122,7 @@ public sealed class SimulatorsController(
             {
                 SerialNumber = serialNumber,
                 Name = request.Name.Trim(),
-                Manufacturer = "Symulator Twoj Licznik",
+                Manufacturer = "Your Meter Simulator",
                 Model = $"Profil {tariff}",
                 FirmwareVersion = "1.0.0",
                 Tariff = tariff,

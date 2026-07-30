@@ -20,7 +20,7 @@ if (string.IsNullOrWhiteSpace(connectionString))
 {
     var dataDirectory = Path.Combine(builder.Environment.ContentRootPath, "App_Data");
     Directory.CreateDirectory(dataDirectory);
-    connectionString = $"Data Source={Path.Combine(dataDirectory, "twoj-licznik.db")}";
+    connectionString = $"Data Source={Path.Combine(dataDirectory, "your-meter.db")}";
 }
 
 builder.Services
@@ -60,7 +60,7 @@ builder.Services
     .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(options =>
     {
-        options.Cookie.Name = "twoj_licznik_session";
+        options.Cookie.Name = "your_meter_session";
         options.Cookie.HttpOnly = true;
         options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
             ? CookieSecurePolicy.SameAsRequest
@@ -198,7 +198,7 @@ app.Use(async (context, next) =>
     var isApiRequest = context.Request.Path.StartsWithSegments("/api");
     var hasAppRequestHeader = string.Equals(
         context.Request.Headers["X-App-Request"],
-        "Twoj-Licznik",
+        "Your-Meter",
         StringComparison.Ordinal);
 
     if (isApiRequest && !isSafeMethod && !hasAppRequestHeader)
@@ -254,7 +254,7 @@ app.UseAuthorization();
 app.MapHealthChecks("/health");
 app.MapGet("/", () => Results.Ok(new
 {
-    service = "Twój Licznik API",
+    service = "Your Meter API",
     status = "ok",
     health = "/health",
     meters = "/api/meters",

@@ -37,7 +37,7 @@ zmieniać własnego profilu lub hasła.
 Łańcuch połączenia można nadpisać zmienną środowiskową:
 
 ```powershell
-$env:ConnectionStrings__DefaultConnection = "Data Source=C:\data\twoj-licznik.db"
+$env:ConnectionStrings__DefaultConnection = "Data Source=C:\data\your-meter.db"
 ```
 
 ## API
@@ -62,7 +62,7 @@ $env:ConnectionStrings__DefaultConnection = "Data Source=C:\data\twoj-licznik.db
 
 Poza logowaniem wszystkie endpointy kontrolerów wymagają aktywnej sesji. Żądania
 `POST`, `PUT`, `PATCH` i `DELETE` kierowane do `/api` muszą dodatkowo zawierać
-nagłówek `X-App-Request: Twoj-Licznik`. Własny nagłówek wraz z ograniczeniem CORS
+nagłówek `X-App-Request: Your-Meter`. Własny nagłówek wraz z ograniczeniem CORS
 chroni operacje modyfikujące przed wywołaniem przez formularz z obcej strony.
 
 Nowy symulator można utworzyć również skryptem:

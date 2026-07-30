@@ -22,7 +22,7 @@ param(
 
 $plainPassword = [System.Net.NetworkCredential]::new("", $Password).Password
 $session = [Microsoft.PowerShell.Commands.WebRequestSession]::new()
-$appHeaders = @{ "X-App-Request" = "Twoj-Licznik" }
+$appHeaders = @{ "X-App-Request" = "Your-Meter" }
 $loginBody = @{
     username = $Username
     password = $plainPassword
