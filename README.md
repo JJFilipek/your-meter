@@ -1,6 +1,7 @@
-# Your Meter - React Client
+# Twój Licznik
 
-This is the frontend client for 'Your Meter', a comprehensive application for monitoring and analyzing electricity meter data. Built with React, TypeScript, and Vite, it provides a rich user interface for visualizing energy consumption, production, and system status.
+System do rejestrowania liczników energii i ich pomiarów. Repozytorium zawiera
+frontend React oraz backend ASP.NET Core 8 z trwałą bazą SQLite.
 
 ## Features
 
@@ -32,6 +33,7 @@ This is the frontend client for 'Your Meter', a comprehensive application for mo
 
 -   Node.js (v18.0.0 or later)
 -   npm (v8.0.0 or later)
+-   .NET SDK 8.0 or later
 
 ### Installation
 
@@ -47,7 +49,11 @@ This is the frontend client for 'Your Meter', a comprehensive application for mo
     ```sh
     npm install
     ```
-4.  Start the development server:
+4.  Start the backend:
+    ```sh
+    dotnet run --project ReactApp.Server/ReactApp.Server.csproj
+    ```
+5.  Start the development server:
     ```sh
     npm run dev
     ```
@@ -61,7 +67,11 @@ In the `reactapp.client` directory, you can run the following scripts:
 -   `npm run build`: Compiles TypeScript and builds the app for production into the `dist` folder.
 -   `npm run lint`: Lints the source code using ESLint to check for code quality and style issues.
 -   `npm run preview`: Starts a local server to preview the production build from the `dist` folder.
--   `npm run deploy`: Builds the project and deploys it to GitHub Pages.
+-   `npm run deploy`: Builds the project and deploys it to Cloudflare Pages.
+
+Backend automatycznie tworzy bazę SQLite i stosuje migracje przy uruchomieniu.
+Dokumentacja API oraz przykładowe żądania znajdują się w
+[`ReactApp.Server/README.md`](ReactApp.Server/README.md).
 
 ## License
 

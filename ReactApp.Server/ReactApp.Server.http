@@ -1,0 +1,55 @@
+@ReactApp.Server_HostAddress = http://localhost:5021
+
+GET {{ReactApp.Server_HostAddress}}/health
+
+###
+
+GET {{ReactApp.Server_HostAddress}}/api/meters
+Accept: application/json
+
+###
+
+POST {{ReactApp.Server_HostAddress}}/api/meters
+Content-Type: application/json
+
+{
+  "serialNumber": "TL-000001",
+  "name": "Licznik główny",
+  "manufacturer": "Apator",
+  "model": "Otus 3",
+  "firmwareVersion": "1.0.0",
+  "tariff": "C11",
+  "samplingIntervalSeconds": 900,
+  "location": {
+    "city": "Warszawa",
+    "site": "Biuro główne",
+    "lat": 52.2297,
+    "lng": 21.0122
+  }
+}
+
+###
+
+POST {{ReactApp.Server_HostAddress}}/api/ingestion/meters/TL-000001/readings
+Content-Type: application/json
+
+{
+  "readings": [
+    {
+      "timestampUtc": "2026-07-30T08:00:00Z",
+      "activeImportKwh": 12450.25,
+      "activeExportKwh": 31.4,
+      "activePowerKw": 8.72,
+      "reactivePowerKvar": 1.14,
+      "voltage": 230.4,
+      "current": 37.9,
+      "frequencyHz": 50.01,
+      "quality": "Valid"
+    }
+  ]
+}
+
+###
+
+GET {{ReactApp.Server_HostAddress}}/api/dashboard/summary
+Accept: application/json

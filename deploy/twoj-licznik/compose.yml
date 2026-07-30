@@ -1,0 +1,57 @@
+name: twoj-licznik
+
+services:
+  api:
+    container_name: twoj-licznik-api
+    image: twoj-licznik-api:latest
+    build:
+      context: ../../ReactApp.Server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    user: "1000:1000"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__DefaultConnection: Data Source=/data/twoj-licznik.db
+      Cors__AllowedOrigins__0: https://licznik.jfilipek.com
+      Simulation__Enabled: "true"
+      Simulation__SeedDefaults: "false"
+      Simulation__BackfillDays: "30"
+      Simulation__HistoricalIntervalMinutes: "15"
+      Simulation__LiveIntervalSeconds: "5"
+    volumes:
+      - ${TWOJ_LICZNIK_DATA_DIR:-./data}:/data
+    expose:
+      - "8080"
+    networks:
+      - edge
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - http://127.0.0.1:8080/health
+      interval: 15s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+    mem_limit: 512m
+    mem_reservation: 128m
+    cpus: "1.00"
+    pids_limit: 192
+    stop_grace_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+networks:
+  edge:
+    name: floracue-edge
+    external: true

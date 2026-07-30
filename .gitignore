@@ -25,14 +25,16 @@ pids/
 build/
 dist/
 public/
+**/bin/
+**/obj/
 
 # Editor and IDE
 .vscode/
 .vs/
 *.suo
+*.user
 *.ntvs*
 *.njsproj
-*.sln
 *.iml
 .idea/
 out/
@@ -41,6 +43,10 @@ Temp/
 # Runtime data
 *.tmp
 *.temp
+*.db
+*.db-shm
+*.db-wal
+App_Data/
 
 # Testing
 coverage/
@@ -52,10 +58,6 @@ coverage/
 .DS_Store
 *.userprefs
 *.nupkg
-
-# Ignore backend/server project (not used)
-ReactApp.Server/
-ReactApp.sln
 
 # Archive or backup folders
 _archive_/
