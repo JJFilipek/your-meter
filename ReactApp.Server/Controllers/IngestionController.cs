@@ -63,19 +63,67 @@ public sealed class IngestionController(AppDbContext dbContext) : ControllerBase
             .ToArray();
         var minimumTimestamp = uniqueSamples[0].TimestampUtc;
         var maximumTimestamp = uniqueSamples[^1].TimestampUtc;
-        var existingTimestampList = await dbContext.MeterReadings
+        var existingReadings = await dbContext.MeterReadings
             .AsNoTracking()
             .Where(x =>
                 x.MeterId == meter.Id &&
                 x.TimestampUtc >= minimumTimestamp &&
                 x.TimestampUtc <= maximumTimestamp)
-            .Select(x => x.TimestampUtc)
+            .Select(x => new RegisterPoint(
+                x.TimestampUtc,
+                x.ActiveImportKwh,
+                x.ActiveExportKwh))
             .ToListAsync(cancellationToken);
-        var existingTimestamps = existingTimestampList.ToHashSet();
+        var existingTimestamps = existingReadings
+            .Select(x => x.TimestampUtc)
+            .ToHashSet();
 
         var acceptedSamples = uniqueSamples
             .Where(x => !existingTimestamps.Contains(x.TimestampUtc))
             .ToArray();
+
+        var previousReading = await dbContext.MeterReadings
+            .AsNoTracking()
+            .Where(x => x.MeterId == meter.Id && x.TimestampUtc < minimumTimestamp)
+            .OrderByDescending(x => x.TimestampUtc)
+            .Select(x => new RegisterPoint(
+                x.TimestampUtc,
+                x.ActiveImportKwh,
+                x.ActiveExportKwh))
+            .FirstOrDefaultAsync(cancellationToken);
+        var nextReading = await dbContext.MeterReadings
+            .AsNoTracking()
+            .Where(x => x.MeterId == meter.Id && x.TimestampUtc > maximumTimestamp)
+            .OrderBy(x => x.TimestampUtc)
+            .Select(x => new RegisterPoint(
+                x.TimestampUtc,
+                x.ActiveImportKwh,
+                x.ActiveExportKwh))
+            .FirstOrDefaultAsync(cancellationToken);
+        var sequence = existingReadings
+            .Concat(acceptedSamples.Select(x => new RegisterPoint(
+                x.TimestampUtc,
+                x.ActiveImportKwh,
+                x.ActiveExportKwh)))
+            .Append(previousReading)
+            .Append(nextReading)
+            .Where(x => x is not null)
+            .OrderBy(x => x!.TimestampUtc)
+            .ToArray();
+
+        for (var index = 1; index < sequence.Length; index++)
+        {
+            var previous = sequence[index - 1]!;
+            var current = sequence[index]!;
+            if (current.ActiveImportKwh < previous.ActiveImportKwh
+                || current.ActiveExportKwh < previous.ActiveExportKwh)
+            {
+                ModelState.AddModelError(
+                    nameof(request.Readings),
+                    $"Rejestry A+ i A- nie mogą maleć. Naruszenie pomiędzy {previous.TimestampUtc:O} a {current.TimestampUtc:O}.");
+                return ValidationProblem(ModelState);
+            }
+        }
 
         foreach (var sample in acceptedSamples)
         {
@@ -94,8 +142,9 @@ public sealed class IngestionController(AppDbContext dbContext) : ControllerBase
             });
         }
 
-        var latest = uniqueSamples[^1];
-        if (meter.LastSeenAtUtc is null || latest.TimestampUtc >= meter.LastSeenAtUtc)
+        var latest = acceptedSamples.LastOrDefault();
+        if (latest is not null
+            && (meter.LastSeenAtUtc is null || latest.TimestampUtc >= meter.LastSeenAtUtc))
         {
             meter.LastSeenAtUtc = latest.TimestampUtc;
             meter.LastReadingQuality = latest.Quality;
@@ -121,4 +170,9 @@ public sealed class IngestionController(AppDbContext dbContext) : ControllerBase
             DateTimeKind.Local => value.ToUniversalTime(),
             _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
         };
+
+    private sealed record RegisterPoint(
+        DateTime TimestampUtc,
+        double ActiveImportKwh,
+        double ActiveExportKwh);
 }

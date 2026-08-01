@@ -22,9 +22,9 @@ services:
       Authentication__DemoEmail: demo@jfilipek.com
       Authentication__DemoPassword: LicznikDemo2026!
       Simulation__Enabled: "true"
-      Simulation__SeedDefaults: "false"
-      Simulation__BackfillDays: "30"
-      Simulation__HistoricalIntervalMinutes: "15"
+      Simulation__SeedDefaults: "true"
+      Simulation__BackfillDays: "180"
+      Simulation__HistoricalIntervalMinutes: "60"
       Simulation__LiveIntervalSeconds: "5"
     volumes:
       - ${YOUR_METER_DATA_DIR:-./data}:/data

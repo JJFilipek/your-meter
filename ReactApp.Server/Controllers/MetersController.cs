@@ -190,6 +190,183 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
         return Ok(readings);
     }
 
+    [HttpGet("{id:guid}/analytics")]
+    [ProducesResponseType<MeterAnalyticsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MeterAnalyticsDto>> GetAnalytics(
+        Guid id,
+        [FromQuery] DateTime? fromUtc,
+        [FromQuery] DateTime? toUtc,
+        [FromQuery] string bucket = "day",
+        CancellationToken cancellationToken = default)
+    {
+        var meter = await dbContext.Meters
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (meter is null)
+        {
+            return NotFound();
+        }
+
+        var to = NormalizeUtc(toUtc ?? DateTime.UtcNow);
+        var from = NormalizeUtc(fromUtc ?? to.AddDays(-30));
+        var normalizedBucket = bucket.Trim().ToLowerInvariant();
+        if (from >= to)
+        {
+            ModelState.AddModelError(nameof(fromUtc), "Początek zakresu musi być wcześniejszy niż koniec.");
+        }
+
+        if (to - from > TimeSpan.FromDays(366))
+        {
+            ModelState.AddModelError(nameof(fromUtc), "Zakres analizy nie może przekraczać 366 dni.");
+        }
+
+        if (normalizedBucket is not ("hour" or "day" or "month"))
+        {
+            ModelState.AddModelError(nameof(bucket), "Obsługiwane agregacje to hour, day i month.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var previous = await dbContext.MeterReadings
+            .AsNoTracking()
+            .Where(x => x.MeterId == id && x.TimestampUtc < from)
+            .OrderByDescending(x => x.TimestampUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+        var readings = await dbContext.MeterReadings
+            .AsNoTracking()
+            .Where(x => x.MeterId == id && x.TimestampUtc >= from && x.TimestampUtc <= to)
+            .OrderBy(x => x.TimestampUtc)
+            .ToListAsync(cancellationToken);
+
+        var aggregates = new SortedDictionary<DateTime, AnalyticsAccumulator>();
+        MeterReading? preceding = previous;
+        foreach (var reading in readings)
+        {
+            var bucketStart = ResolveBucketStart(reading.TimestampUtc, normalizedBucket);
+            if (!aggregates.TryGetValue(bucketStart, out var accumulator))
+            {
+                accumulator = new AnalyticsAccumulator();
+                aggregates.Add(bucketStart, accumulator);
+            }
+
+            if (preceding is not null)
+            {
+                accumulator.ImportedKwh += Math.Max(
+                    0,
+                    reading.ActiveImportKwh - preceding.ActiveImportKwh);
+                accumulator.ExportedKwh += Math.Max(
+                    0,
+                    reading.ActiveExportKwh - preceding.ActiveExportKwh);
+            }
+
+            accumulator.AddPower(reading.ActivePowerKw);
+            preceding = reading;
+        }
+
+        var maximumImportReading = readings
+            .Where(x => x.ActivePowerKw > 0)
+            .MaxBy(x => x.ActivePowerKw);
+        var maximumExportReading = readings
+            .Where(x => x.ActivePowerKw < 0)
+            .MinBy(x => x.ActivePowerKw);
+        var buckets = aggregates
+            .Select(item => new MeterAnalyticsBucketDto(
+                item.Key,
+                ResolveBucketEnd(item.Key, normalizedBucket),
+                Math.Round(item.Value.ImportedKwh, 6),
+                Math.Round(item.Value.ExportedKwh, 6),
+                Math.Round(item.Value.AveragePowerKw, 4),
+                Math.Round(item.Value.AverageAbsolutePowerKw, 4),
+                Math.Round(item.Value.MaximumImportPowerKw, 4),
+                Math.Round(item.Value.MaximumExportPowerKw, 4),
+                item.Value.SampleCount))
+            .ToArray();
+        var latest = readings.LastOrDefault();
+
+        return Ok(new MeterAnalyticsDto(
+            meter.Id,
+            meter.SerialNumber,
+            meter.Name,
+            meter.Tariff,
+            meter.SimulationBasePowerKw,
+            from,
+            to,
+            normalizedBucket,
+            Math.Round(buckets.Sum(x => x.ImportedKwh), 6),
+            Math.Round(buckets.Sum(x => x.ExportedKwh), 6),
+            latest?.ActivePowerKw,
+            latest?.TimestampUtc,
+            Math.Round(maximumImportReading?.ActivePowerKw ?? 0, 4),
+            maximumImportReading?.TimestampUtc,
+            Math.Round(Math.Abs(maximumExportReading?.ActivePowerKw ?? 0), 4),
+            maximumExportReading?.TimestampUtc,
+            Math.Round(
+                readings.Count == 0
+                    ? 0
+                    : readings.Average(x => Math.Abs(x.ActivePowerKw)),
+                4),
+            buckets));
+    }
+
+    private static DateTime ResolveBucketStart(DateTime timestamp, string bucket) =>
+        bucket switch
+        {
+            "hour" => new DateTime(
+                timestamp.Year,
+                timestamp.Month,
+                timestamp.Day,
+                timestamp.Hour,
+                0,
+                0,
+                DateTimeKind.Utc),
+            "month" => new DateTime(
+                timestamp.Year,
+                timestamp.Month,
+                1,
+                0,
+                0,
+                0,
+                DateTimeKind.Utc),
+            _ => timestamp.Date
+        };
+
+    private static DateTime ResolveBucketEnd(DateTime start, string bucket) =>
+        bucket switch
+        {
+            "hour" => start.AddHours(1),
+            "month" => start.AddMonths(1),
+            _ => start.AddDays(1)
+        };
+
+    private sealed class AnalyticsAccumulator
+    {
+        private double powerSum;
+        private double absolutePowerSum;
+
+        public double ImportedKwh { get; set; }
+        public double ExportedKwh { get; set; }
+        public double MaximumImportPowerKw { get; private set; }
+        public double MaximumExportPowerKw { get; private set; }
+        public int SampleCount { get; private set; }
+        public double AveragePowerKw => SampleCount == 0 ? 0 : powerSum / SampleCount;
+        public double AverageAbsolutePowerKw =>
+            SampleCount == 0 ? 0 : absolutePowerSum / SampleCount;
+
+        public void AddPower(double powerKw)
+        {
+            powerSum += powerKw;
+            absolutePowerSum += Math.Abs(powerKw);
+            MaximumImportPowerKw = Math.Max(MaximumImportPowerKw, powerKw);
+            MaximumExportPowerKw = Math.Max(MaximumExportPowerKw, -powerKw);
+            SampleCount++;
+        }
+    }
+
     private static DateTime NormalizeUtc(DateTime value) =>
         value.Kind switch
         {

@@ -106,6 +106,37 @@ public sealed record MeterReadingDto(
     double? FrequencyHz,
     ReadingQuality Quality);
 
+public sealed record MeterAnalyticsBucketDto(
+    DateTime StartUtc,
+    DateTime EndUtc,
+    double ImportedKwh,
+    double ExportedKwh,
+    double AveragePowerKw,
+    double AverageAbsolutePowerKw,
+    double MaximumImportPowerKw,
+    double MaximumExportPowerKw,
+    int SampleCount);
+
+public sealed record MeterAnalyticsDto(
+    Guid MeterId,
+    string SerialNo,
+    string Name,
+    string Tariff,
+    double? ReferencePowerKw,
+    DateTime FromUtc,
+    DateTime ToUtc,
+    string Bucket,
+    double ImportedKwh,
+    double ExportedKwh,
+    double? LatestPowerKw,
+    DateTime? LatestReadingAtUtc,
+    double MaximumImportPowerKw,
+    DateTime? MaximumImportPowerAtUtc,
+    double MaximumExportPowerKw,
+    DateTime? MaximumExportPowerAtUtc,
+    double AverageAbsolutePowerKw,
+    IReadOnlyList<MeterAnalyticsBucketDto> Buckets);
+
 public sealed record ReadingIngestionResult(int Accepted, int Duplicates, DateTime? LastSeenAtUtc);
 
 public sealed record SimulatorDto(

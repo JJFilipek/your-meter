@@ -138,13 +138,117 @@ public sealed class MeterSimulationWorker(
                 continue;
             }
 
-            var hasReadings = await dbContext.MeterReadings
-                .AnyAsync(item => item.MeterId == meter.Id, cancellationToken);
-            if (!hasReadings)
+            var earliestReading = await dbContext.MeterReadings
+                .AsNoTracking()
+                .Where(item => item.MeterId == meter.Id)
+                .OrderBy(item => item.TimestampUtc)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (earliestReading is null)
             {
                 await BackfillMeterAsync(dbContext, meter, definition, cancellationToken);
             }
+            else
+            {
+                await ExtendBackfillAsync(
+                    dbContext,
+                    meter,
+                    definition,
+                    earliestReading,
+                    cancellationToken);
+            }
         }
+    }
+
+    private async Task ExtendBackfillAsync(
+        AppDbContext dbContext,
+        Meter meter,
+        SimulatedMeterDefinition definition,
+        MeterReading earliestReading,
+        CancellationToken cancellationToken)
+    {
+        var intervalMinutes = Math.Clamp(
+            simulationOptions.HistoricalIntervalMinutes,
+            5,
+            60);
+        var interval = TimeSpan.FromMinutes(intervalMinutes);
+        var backfillDays = Math.Clamp(simulationOptions.BackfillDays, 1, 365);
+        var targetStart = FloorTimestamp(DateTime.UtcNow, interval)
+            .AddDays(-backfillDays);
+        if (earliestReading.TimestampUtc <= targetStart)
+        {
+            return;
+        }
+
+        var prefix = new List<MeterReading>
+        {
+            new()
+            {
+                MeterId = meter.Id,
+                TimestampUtc = targetStart,
+                ActiveImportKwh = 0,
+                ActiveExportKwh = 0,
+                ActivePowerKw = 0,
+                ReactivePowerKvar = 0,
+                Voltage = 230,
+                Current = 0,
+                FrequencyHz = 50,
+                Quality = ReadingQuality.Valid
+            }
+        };
+        var previous = prefix[0];
+        var timestamp = targetStart.Add(interval);
+        while (timestamp < earliestReading.TimestampUtc)
+        {
+            previous = CreateReading(
+                meter,
+                definition,
+                timestamp,
+                interval,
+                previous.ActiveImportKwh,
+                previous.ActiveExportKwh);
+            prefix.Add(previous);
+            timestamp = timestamp.Add(interval);
+        }
+
+        var importOffset = Math.Max(
+            0,
+            previous.ActiveImportKwh - earliestReading.ActiveImportKwh);
+        var exportOffset = Math.Max(
+            0,
+            previous.ActiveExportKwh - earliestReading.ActiveExportKwh);
+        if (importOffset > 0 || exportOffset > 0)
+        {
+            await dbContext.MeterReadings
+                .Where(item => item.MeterId == meter.Id)
+                .ExecuteUpdateAsync(
+                    setters => setters
+                        .SetProperty(
+                            item => item.ActiveImportKwh,
+                            item => item.ActiveImportKwh + importOffset)
+                        .SetProperty(
+                            item => item.ActiveExportKwh,
+                            item => item.ActiveExportKwh + exportOffset),
+                    cancellationToken);
+        }
+
+        dbContext.MeterReadings.AddRange(prefix);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        var latestReading = await dbContext.MeterReadings
+            .AsNoTracking()
+            .Where(item => item.MeterId == meter.Id)
+            .OrderByDescending(item => item.TimestampUtc)
+            .FirstAsync(cancellationToken);
+        ApplyLatestReading(meter, latestReading);
+        await dbContext.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "Rozszerzono historię {SerialNumber} o {ReadingCount} odczytów od {StartUtc}; przesunięcie rejestrów A+={ImportOffset}, A-={ExportOffset}.",
+            meter.SerialNumber,
+            prefix.Count,
+            targetStart,
+            importOffset,
+            exportOffset);
     }
 
     private async Task BackfillMeterAsync(
