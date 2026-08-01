@@ -81,6 +81,25 @@ export type MeterAnalytics = {
     buckets: AnalyticsBucket[]
 }
 
+export type TariffCode = 'G11' | 'G12' | 'G12W'
+
+export type TariffZone = {
+    code: string
+    name: string
+    energyKwh: number
+    percentage: number
+}
+
+export type TariffSimulation = {
+    meterId: string
+    sourceTariff: string
+    targetTariff: TariffCode
+    fromUtc: string
+    toUtc: string
+    totalImportedKwh: number
+    zones: TariffZone[]
+}
+
 export type Simulator = {
     id: string
     serialNo: string
@@ -158,6 +177,17 @@ export const getMeterAnalytics = (
 ) => {
     const query = new URLSearchParams({ fromUtc, toUtc, bucket })
     return apiRequest<MeterAnalytics>(`/api/meters/${meterId}/analytics?${query}`, { signal })
+}
+
+export const getTariffSimulation = (
+    meterId: string,
+    fromUtc: string,
+    toUtc: string,
+    tariff: TariffCode,
+    signal?: AbortSignal,
+) => {
+    const query = new URLSearchParams({ fromUtc, toUtc, tariff })
+    return apiRequest<TariffSimulation>(`/api/meters/${meterId}/tariff-simulation?${query}`, { signal })
 }
 
 export const getSimulators = (signal?: AbortSignal) =>

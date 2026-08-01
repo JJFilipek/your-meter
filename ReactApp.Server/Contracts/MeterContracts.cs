@@ -137,6 +137,21 @@ public sealed record MeterAnalyticsDto(
     double AverageAbsolutePowerKw,
     IReadOnlyList<MeterAnalyticsBucketDto> Buckets);
 
+public sealed record TariffZoneDto(
+    string Code,
+    string Name,
+    double EnergyKwh,
+    double Percentage);
+
+public sealed record TariffSimulationDto(
+    Guid MeterId,
+    string SourceTariff,
+    string TargetTariff,
+    DateTime FromUtc,
+    DateTime ToUtc,
+    double TotalImportedKwh,
+    IReadOnlyList<TariffZoneDto> Zones);
+
 public sealed record ReadingIngestionResult(int Accepted, int Duplicates, DateTime? LastSeenAtUtc);
 
 public sealed record SimulatorDto(

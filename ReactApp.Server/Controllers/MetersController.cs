@@ -313,6 +313,140 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
             buckets));
     }
 
+    [HttpGet("{id:guid}/tariff-simulation")]
+    [ProducesResponseType<TariffSimulationDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TariffSimulationDto>> GetTariffSimulation(
+        Guid id,
+        [FromQuery] DateTime? fromUtc,
+        [FromQuery] DateTime? toUtc,
+        [FromQuery] string tariff = "G12",
+        CancellationToken cancellationToken = default)
+    {
+        var meter = await dbContext.Meters
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (meter is null)
+        {
+            return NotFound();
+        }
+
+        var to = NormalizeUtc(toUtc ?? DateTime.UtcNow);
+        var from = NormalizeUtc(fromUtc ?? to.AddDays(-30));
+        var targetTariff = tariff.Trim().ToUpperInvariant();
+        if (from >= to)
+        {
+            ModelState.AddModelError(nameof(fromUtc), "Początek zakresu musi być wcześniejszy niż koniec.");
+        }
+
+        if (to - from > TimeSpan.FromDays(366))
+        {
+            ModelState.AddModelError(nameof(fromUtc), "Zakres przeliczenia nie może przekraczać 366 dni.");
+        }
+
+        if (targetTariff is not ("G11" or "G12" or "G12W"))
+        {
+            ModelState.AddModelError(nameof(tariff), "Obsługiwane taryfy to G11, G12 i G12W.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var previous = await dbContext.MeterReadings
+            .AsNoTracking()
+            .Where(x => x.MeterId == id && x.TimestampUtc < from)
+            .OrderByDescending(x => x.TimestampUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+        var readings = await dbContext.MeterReadings
+            .AsNoTracking()
+            .Where(x => x.MeterId == id && x.TimestampUtc >= from && x.TimestampUtc <= to)
+            .OrderBy(x => x.TimestampUtc)
+            .ToListAsync(cancellationToken);
+
+        var zones = CreateTariffZones(targetTariff);
+        MeterReading? preceding = previous;
+        foreach (var reading in readings)
+        {
+            if (preceding is not null)
+            {
+                var importedKwh = Math.Max(0, reading.ActiveImportKwh - preceding.ActiveImportKwh);
+                var intervalMiddleUtc = preceding.TimestampUtc.AddTicks(
+                    (reading.TimestampUtc - preceding.TimestampUtc).Ticks / 2);
+                zones[ResolveTariffZone(targetTariff, intervalMiddleUtc)].EnergyKwh += importedKwh;
+            }
+
+            preceding = reading;
+        }
+
+        var totalImportedKwh = zones.Values.Sum(x => x.EnergyKwh);
+        var zoneDtos = zones.Values
+            .Select(x => new TariffZoneDto(
+                x.Code,
+                x.Name,
+                Math.Round(x.EnergyKwh, 6),
+                totalImportedKwh == 0
+                    ? 0
+                    : Math.Round(x.EnergyKwh / totalImportedKwh * 100, 2)))
+            .ToArray();
+
+        return Ok(new TariffSimulationDto(
+            meter.Id,
+            meter.Tariff,
+            targetTariff,
+            from,
+            to,
+            Math.Round(totalImportedKwh, 6),
+            zoneDtos));
+    }
+
+    private static Dictionary<string, TariffZoneAccumulator> CreateTariffZones(string tariff) =>
+        tariff switch
+        {
+            "G11" => new()
+            {
+                ["ALL_DAY"] = new("ALL_DAY", "Całodobowa")
+            },
+            "G12" => new()
+            {
+                ["DAY"] = new("DAY", "Dzienna"),
+                ["NIGHT"] = new("NIGHT", "Nocna")
+            },
+            _ => new()
+            {
+                ["PEAK"] = new("PEAK", "Szczytowa"),
+                ["OFF_PEAK"] = new("OFF_PEAK", "Pozaszczytowa i weekend")
+            }
+        };
+
+    private static string ResolveTariffZone(string tariff, DateTime timestampUtc)
+    {
+        if (tariff == "G11")
+        {
+            return "ALL_DAY";
+        }
+
+        var local = TimeZoneInfo.ConvertTimeFromUtc(timestampUtc, WarsawTimeZone);
+        var isOffPeakHour = local.Hour < 6 || local.Hour >= 22 || local.Hour is >= 13 and < 15;
+        if (tariff == "G12")
+        {
+            return isOffPeakHour ? "NIGHT" : "DAY";
+        }
+
+        var isWeekend = local.DayOfWeek is DayOfWeek.Saturday or DayOfWeek.Sunday;
+        return isWeekend || isOffPeakHour ? "OFF_PEAK" : "PEAK";
+    }
+
+    private static readonly TimeZoneInfo WarsawTimeZone =
+        TimeZoneInfo.FindSystemTimeZoneById("Europe/Warsaw");
+
+    private sealed record TariffZoneAccumulator(string Code, string Name)
+    {
+        public double EnergyKwh { get; set; }
+    }
+
     private static DateTime ResolveBucketStart(DateTime timestamp, string bucket) =>
         bucket switch
         {

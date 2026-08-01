@@ -18,13 +18,14 @@ public sealed class DashboardController(AppDbContext dbContext) : ControllerBase
         var utcNow = DateTime.UtcNow;
         var monthStart = new DateTime(utcNow.Year, utcNow.Month, 1, 0, 0, 0, DateTimeKind.Utc);
         var weekStart = utcNow.Date.AddDays(-6);
+        var dataStart = monthStart < weekStart ? monthStart : weekStart;
 
         var meters = await dbContext.Meters
             .AsNoTracking()
             .ToListAsync(cancellationToken);
         var readings = await dbContext.MeterReadings
             .AsNoTracking()
-            .Where(x => x.TimestampUtc >= monthStart)
+            .Where(x => x.TimestampUtc >= dataStart.AddDays(-1))
             .Select(x => new
             {
                 x.MeterId,
@@ -36,11 +37,27 @@ public sealed class DashboardController(AppDbContext dbContext) : ControllerBase
         var statuses = meters
             .Select(x => MeterStatusService.Resolve(x, utcNow))
             .ToArray();
-        var consumptionByMeter = readings
+        var consumptionIntervals = readings
             .GroupBy(x => x.MeterId)
-            .ToDictionary(
-                x => x.Key,
-                x => Math.Max(0, x.Max(y => y.ActiveImportKwh) - x.Min(y => y.ActiveImportKwh)));
+            .SelectMany(group => group
+                .OrderBy(x => x.TimestampUtc)
+                .Zip(
+                    group.OrderBy(x => x.TimestampUtc).Skip(1),
+                    (previous, current) => new
+                    {
+                        current.MeterId,
+                        TimestampUtc = previous.TimestampUtc.AddTicks(
+                            (current.TimestampUtc - previous.TimestampUtc).Ticks / 2),
+                        ValueKwh = Math.Max(
+                            0,
+                            current.ActiveImportKwh - previous.ActiveImportKwh)
+                    }))
+            .Where(x => x.TimestampUtc >= dataStart)
+            .ToArray();
+        var consumptionByMeter = consumptionIntervals
+            .Where(x => x.TimestampUtc >= monthStart)
+            .GroupBy(x => x.MeterId)
+            .ToDictionary(x => x.Key, x => x.Sum(y => y.ValueKwh));
         var monthConsumption = consumptionByMeter.Values.Sum();
         var elapsedDays = Math.Max(1, utcNow.Day);
 
@@ -49,12 +66,9 @@ public sealed class DashboardController(AppDbContext dbContext) : ControllerBase
             {
                 var date = weekStart.AddDays(offset);
                 var nextDate = date.AddDays(1);
-                var value = readings
+                var value = consumptionIntervals
                     .Where(x => x.TimestampUtc >= date && x.TimestampUtc < nextDate)
-                    .GroupBy(x => x.MeterId)
-                    .Sum(x => Math.Max(
-                        0,
-                        x.Max(y => y.ActiveImportKwh) - x.Min(y => y.ActiveImportKwh)));
+                    .Sum(x => x.ValueKwh);
 
                 return new TimeSeriesPointDto(DateOnly.FromDateTime(date), Math.Round(value, 3));
             })
