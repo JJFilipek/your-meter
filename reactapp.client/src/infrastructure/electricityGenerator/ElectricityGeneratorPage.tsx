@@ -1,306 +1,209 @@
-import { useState } from "react"
-import { Container, Row, Col, Card, Breadcrumb, Form, Table, Button } from "react-bootstrap"
-import { Bar, Doughnut, Line } from "react-chartjs-2"
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Breadcrumb, Button, ButtonGroup, Card, Col, Container, Form, Row, Spinner, Table } from 'react-bootstrap'
+import { Bar, Line } from 'react-chartjs-2'
 import {
+    BarElement,
+    CategoryScale,
     Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
-    BarElement,
+    Legend,
     LineElement,
-    ArcElement,
+    LinearScale,
     PointElement,
     Tooltip,
-    Legend,
-    Title
-} from "chart.js"
-import * as Fa from "react-icons/fa"
+} from 'chart.js'
+import * as Fa from 'react-icons/fa'
+import { getMeterAnalytics, getMeters, type MeterAnalytics } from '../../api/meters'
+import type { Meter } from '../../types/infrastructure/meter'
 
-ChartJS.register(
-    CategoryScale,
-    LinearScale,
-    BarElement,
-    LineElement,
-    ArcElement,
-    PointElement,
-    Tooltip,
-    Legend,
-    Title
-)
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Tooltip, Legend)
 
-const meters = [
-    { id: 1, name: "Farma PV 938 (A23)" },
-    { id: 2, name: "PV – licznik falownika (A22)" },
-    { id: 3, name: "Podlicznik – Piętro 1 (G11)" },
+const numberFormatter = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const dateFormatter = new Intl.DateTimeFormat('pl-PL', { month: 'short', year: 'numeric' })
+
+const periods = [
+    { label: '30 dni', days: 30, bucket: 'day' as const },
+    { label: '180 dni', days: 180, bucket: 'month' as const },
+    { label: '365 dni', days: 365, bucket: 'month' as const },
 ]
 
-const productionData = [
-    { month: "2024-07", generated: 11420, exported: 10380 },
-    { month: "2024-08", generated: 10890, exported: 9100 },
-    { month: "2024-09", generated: 7130, exported: 5020 },
-    { month: "2024-10", generated: 4290, exported: 2380 },
-    { month: "2024-11", generated: 1810, exported: 420 },
-    { month: "2024-12", generated: 510, exported: 30 },
-    { month: "2025-01", generated: 340, exported: 10 },
-    { month: "2025-02", generated: 590, exported: 40 },
-    { month: "2025-03", generated: 2060, exported: 580 },
-    { month: "2025-04", generated: 6290, exported: 4600 },
-    { month: "2025-05", generated: 9280, exported: 7900 },
-    { month: "2025-06", generated: 1920, exported: 1350 }
-]
-
-
-
-
-
-const miniData = {
-    labels: Array.from({ length: 12 }, (_, i) => `${70 - i * 5} min`),
-    datasets: [{
-        data: [0.3, 0.4, 0.5, 0.7, 1.6, 3.7, 3.8, 4.4, 3.2, 1.3, 1.2, 1.3],
-        borderColor: "#cc3366",
-        fill: false,
-        tension: 0.5,
-        pointRadius: 0
-    }]
-}
-const miniOptions = {
-    plugins: { legend: { display: false } },
-    elements: { line: { borderWidth: 2 } },
-    scales: { x: { display: false }, y: { display: false } }
-}
-
-const summaryCards = [
-    {
-        label: "Aktualna moc",
-        value: "5,2 kW",
-        subtitle: "87% mocy maksymalnej",
-        icon: Fa.FaBolt,
-        mini: null
-    },
-    {
-        label: "Wyprodukowano dziś",
-        value: "34,6 kWh",
-        subtitle: "",
-        icon: Fa.FaSun,
-        mini: <Line data={miniData} options={miniOptions} height={28} />
-    },
-    {
-        label: "Autokonsumpcja",
-        value: "52%",
-        subtitle: "zużyto lokalnie",
-        icon: Fa.FaHome,
-        mini: <Doughnut
-            data={{
-                labels: ["Lokalnie", "Oddano"],
-                datasets: [{
-                    data: [52, 48],
-                    backgroundColor: ["#660032", "#a9e34b"],
-                    borderWidth: 0
-                }]
-            }}
-            options={{
-                cutout: "70%",
-                plugins: { legend: { display: false } }
-            }}
-            height={32}
-        />
-    },
-    {
-        label: "Oddano do sieci",
-        value: "68,1 kWh",
-        subtitle: "",
-        icon: Fa.FaExchangeAlt,
-        mini: <Line
-            data={{
-                labels: Array.from({ length: 12 }, (_, i) => `${60 - i * 5} min`),
-                datasets: [{
-                    data: [0, 0.1, 0.1, 0.3, 0.4, 0.35, 0, 0.4, 0.5, 0.6, 0.82, 1],
-                    borderColor: "#a9e34b",
-                    fill: false,
-                    tension: 0.5,
-                    pointRadius: 0
-                }]
-            }}
-            options={miniOptions}
-            height={28}
-        />
-    }
-]
-
-const chartData = {
-    labels: productionData.map(d => d.month),
-    datasets: [
-        {
-            label: "Energia wytworzona [kWh]",
-            data: productionData.map(d => d.generated),
-            backgroundColor: "#660032"
-        },
-        {
-            label: "Energia oddana do sieci [kWh]",
-            data: productionData.map(d => d.exported),
-            backgroundColor: "#a9e34b"
-        }
+const downloadCsv = (analytics: MeterAnalytics) => {
+    const rows = [
+        ['poczatek_utc', 'koniec_utc', 'pobrano_kwh', 'oddano_kwh', 'srednia_moc_kw', 'maks_eksport_kw'],
+        ...analytics.buckets.map((bucket) => [
+            bucket.startUtc,
+            bucket.endUtc,
+            bucket.importedKwh,
+            bucket.exportedKwh,
+            bucket.averagePowerKw,
+            bucket.maximumExportPowerKw,
+        ]),
     ]
-}
-const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { position: "top" as const } },
-    scales: { x: { grid: { display: false } }, y: { beginAtZero: true } }
-}
-
-const forecast = {
-    tomorrow: 39.7,
-    trend: "+15%",
-    comparedToYesterday: "+4,5 kWh"
-}
-
-const notifications = [
-    { icon: Fa.FaTools, text: "2025-05-22: Serwis falownika zaplanowany 16:00–17:00" },
-    { icon: Fa.FaSun, text: "2025-05-22: Maksymalna moc 6,8 kW osiągnięta o 12:34" },
-    { icon: Fa.FaExclamationTriangle, text: "2025-05-21: Spadek produkcji o 20% w stosunku do normy" }
-]
-
-function exportCsv() {
-    alert("Eksport danych do CSV")
+    const csv = rows.map((row) => row.join(';')).join('\n')
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${analytics.serialNo}-energia.csv`
+    link.click()
+    URL.revokeObjectURL(url)
 }
 
 export function ElectricityGeneratorPage() {
-    const [selectedMeter, setSelectedMeter] = useState(meters[0].id)
+    const [meters, setMeters] = useState<Meter[]>([])
+    const [selectedMeter, setSelectedMeter] = useState('')
+    const [periodDays, setPeriodDays] = useState(180)
+    const [analytics, setAnalytics] = useState<MeterAnalytics | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        const controller = new AbortController()
+        void getMeters(controller.signal)
+            .then((items) => {
+                setMeters(items)
+                const producer = [...items].sort(
+                    (left, right) => (right.latestActiveExportKwh ?? 0) - (left.latestActiveExportKwh ?? 0),
+                )[0]
+                setSelectedMeter((current) => current || producer?.id || '')
+            })
+            .catch((loadError) => {
+                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
+                setError(loadError instanceof Error ? loadError.message : 'Nie udało się pobrać liczników.')
+            })
+        return () => controller.abort()
+    }, [])
+
+    useEffect(() => {
+        if (!selectedMeter) {
+            setIsLoading(false)
+            return
+        }
+        const controller = new AbortController()
+        const period = periods.find((item) => item.days === periodDays) ?? periods[1]
+        const to = new Date()
+        const from = new Date(to.getTime() - period.days * 24 * 60 * 60 * 1000)
+        setIsLoading(true)
+        setError(null)
+        void getMeterAnalytics(selectedMeter, from.toISOString(), to.toISOString(), period.bucket, controller.signal)
+            .then(setAnalytics)
+            .catch((loadError) => {
+                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
+                setError(loadError instanceof Error ? loadError.message : 'Nie udało się pobrać danych wytwórcy.')
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setIsLoading(false)
+            })
+        return () => controller.abort()
+    }, [periodDays, selectedMeter])
+
+    const labels = useMemo(
+        () => analytics?.buckets.map((bucket) => dateFormatter.format(new Date(bucket.startUtc))) ?? [],
+        [analytics],
+    )
+    const energyChart = useMemo(() => ({
+        labels,
+        datasets: [
+            { label: 'Oddano do sieci A- [kWh]', data: analytics?.buckets.map((bucket) => bucket.exportedKwh) ?? [], backgroundColor: '#7ecb20' },
+            { label: 'Pobrano z sieci A+ [kWh]', data: analytics?.buckets.map((bucket) => bucket.importedKwh) ?? [], backgroundColor: '#660032' },
+        ],
+    }), [analytics, labels])
+    const powerChart = useMemo(() => ({
+        labels,
+        datasets: [{
+            label: 'Maksymalna moc oddawana [kW]',
+            data: analytics?.buckets.map((bucket) => bucket.maximumExportPowerKw) ?? [],
+            borderColor: '#7ecb20',
+            backgroundColor: 'rgba(126,203,32,0.15)',
+            fill: true,
+            tension: 0.3,
+        }],
+    }), [analytics, labels])
+
+    const currentPower = Math.max(0, -(analytics?.latestPowerKw ?? 0))
+    const balance = (analytics?.exportedKwh ?? 0) - (analytics?.importedKwh ?? 0)
 
     return (
         <Container fluid>
-            <Breadcrumb className="mb-3">
-                <Breadcrumb.Item active>Wytwórca</Breadcrumb.Item>
-            </Breadcrumb>
-
-            <Row className="align-items-center mb-4">
+            <Breadcrumb className="mb-3"><Breadcrumb.Item active>Wytwórca</Breadcrumb.Item></Breadcrumb>
+            <Row className="align-items-center mb-4 g-3">
                 <Col>
-                    <h3 className="fw-semibold mb-0">
-                        <Fa.FaSolarPanel className="me-2 icon-accent" /> Wytwórca
-                    </h3>
+                    <h3 className="fw-semibold mb-0"><Fa.FaSolarPanel className="me-2 icon-accent" /> Wytwórca</h3>
+                    <div className="text-muted small mt-1">Eksport i bilans energii obliczone z rejestrów A- i A+.</div>
                 </Col>
                 <Col xs="auto">
                     <Form.Group className="d-flex align-items-center gap-2">
                         <Form.Label className="mb-0">Licznik:</Form.Label>
-                        <Form.Select style={{ minWidth: 220 }} value={selectedMeter} onChange={e => setSelectedMeter(Number(e.target.value))}>
-                            {meters.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        <Form.Select value={selectedMeter} onChange={(event) => setSelectedMeter(event.target.value)} style={{ minWidth: 270 }}>
+                            {meters.map((meter) => <option key={meter.id} value={meter.id}>{meter.name} ({meter.tariff})</option>)}
                         </Form.Select>
                     </Form.Group>
                 </Col>
             </Row>
 
-            <Row className="g-4 mb-3">
-                {summaryCards.map((c, i) => (
-                    <Col md={6} lg={3} key={i}>
-                        <Card className="metric-card h-100 px-3 py-2 d-flex flex-row justify-content-between align-items-start">
-                            <div className="d-flex flex-column align-items-start">
-                                <div className="text-muted text-uppercase small">{c.label}</div>
-                                <div className="fs-4 d-flex align-items-center mt-1">
-                                    <c.icon className="me-2 icon-accent" size={24} />
-                                    {c.value}
-                                </div>
-                                {c.subtitle && <div className="text-muted small mt-1">{c.subtitle}</div>}
-                            </div>
-                            {c.mini && (
-                                <div className="mini-chart-container d-flex align-items-end">
-                                    {c.mini}
-                                </div>
-                            )}
-                        </Card>
-
-                    </Col>
+            <ButtonGroup className="mb-3">
+                {periods.map((period) => (
+                    <Button key={period.days} variant={periodDays === period.days ? 'primary' : 'outline-secondary'} onClick={() => setPeriodDays(period.days)}>
+                        {period.label}
+                    </Button>
                 ))}
-            </Row>
+            </ButtonGroup>
 
+            {error && <Alert variant="danger">{error}</Alert>}
+            {isLoading ? (
+                <div className="text-center py-5"><Spinner animation="border" /><div className="mt-2">Agregowanie pomiarów...</div></div>
+            ) : !analytics || analytics.buckets.length === 0 ? (
+                <Alert variant="info">Brak danych pomiarowych w wybranym okresie.</Alert>
+            ) : (
+                <>
+                    {analytics.exportedKwh === 0 && (
+                        <Alert variant="warning">Wybrany licznik nie zarejestrował energii oddanej. Wybierz licznik instalacji prosumenckiej.</Alert>
+                    )}
+                    <Row className="g-3 mb-3">
+                        {[
+                            { label: 'Aktualna moc oddawana', value: currentPower, unit: 'kW', icon: Fa.FaBolt },
+                            { label: 'Oddano w okresie', value: analytics.exportedKwh, unit: 'kWh', icon: Fa.FaArrowUp },
+                            { label: 'Pobrano w okresie', value: analytics.importedKwh, unit: 'kWh', icon: Fa.FaArrowDown },
+                            { label: 'Bilans sieciowy', value: balance, unit: 'kWh', icon: Fa.FaExchangeAlt },
+                        ].map((card) => (
+                            <Col md={6} xl={3} key={card.label}>
+                                <Card className="h-100 p-3">
+                                    <div className="text-muted text-uppercase small">{card.label}</div>
+                                    <div className="fs-4 mt-1"><card.icon className="me-2 icon-accent" />{numberFormatter.format(card.value)} {card.unit}</div>
+                                </Card>
+                            </Col>
+                        ))}
+                    </Row>
 
-            <Row className="g-4 mb-4">
-                <Col md={4}>
-                    <Card className="metric-card h-100 px-3 py-2 d-flex flex-column align-items-start justify-content-between">
-                        <div className="text-muted text-uppercase small">Prognoza produkcji</div>
-                        <div className="fs-4 d-flex align-items-center mt-1">
-                            <Fa.FaChartLine className="me-2 icon-accent" size={20} />
-                            {forecast.tomorrow} kWh
+                    <Row className="g-3 mb-3">
+                        <Col xl={8}><Card className="h-100"><Card.Body>
+                            <div className="text-uppercase small fw-bold mb-2">Energia wymieniona z siecią</div>
+                            <div style={{ height: 420 }}><Bar data={energyChart} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} /></div>
+                        </Card.Body></Card></Col>
+                        <Col xl={4}><Card className="h-100"><Card.Body>
+                            <div className="text-uppercase small fw-bold mb-2">Szczyt mocy oddawanej</div>
+                            <div style={{ height: 420 }}><Line data={powerChart} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} /></div>
+                        </Card.Body></Card></Col>
+                    </Row>
+
+                    <Card><Card.Body>
+                        <div className="d-flex justify-content-between align-items-center mb-3">
+                            <div className="text-uppercase small fw-bold">Historia rozliczeniowa</div>
+                            <Button size="sm" variant="outline-secondary" onClick={() => downloadCsv(analytics)}><Fa.FaFileCsv className="me-2" />Eksport CSV</Button>
                         </div>
-                        <div className="small mt-1" style={{ color: forecast.trend.startsWith('+') ? "#357951" : "#984040" }}>
-                            {forecast.trend} względem dziś &bull; {forecast.comparedToYesterday} od wczoraj
-                        </div>
-                    </Card>
-                </Col>
-
-                <Col md={4}>
-                    <Card className="metric-card h-100 px-3 py-2 d-flex flex-column align-items-start justify-content-between">
-                        <div className="text-muted text-uppercase small">Porównanie produkcji</div>
-                        <div className="mt-1 small">
-                            <span className="fw-semibold" style={{ color: "#357951" }}>Dziś:</span> 34,6 kWh &nbsp;
-                            <span className="fw-semibold" style={{ color: "#984040" }}>Wczoraj:</span> 30,1 kWh
-                        </div>
-                        <div className="small">
-                            <span className="fw-semibold" style={{ color: "#357951" }}>Miesiąc:</span> 1250 kWh &nbsp;
-                            <span className="fw-semibold" style={{ color: "#984040" }}>Poprzedni miesiąc :</span> 1140 kWh
-                        </div>
-                    </Card>
-                </Col>
-
-                <Col md={4}>
-                    <Card className="metric-card h-100 px-3 py-2 d-flex flex-column align-items-start justify-content-between">
-                        <div className="text-muted text-uppercase small mb-1">Ostatnie zdarzenia</div>
-                        <ul className="ps-3 mb-0 small">
-                            {notifications.map((n, i) => (
-                                <li key={i} className="mb-1">
-                                    <n.icon className="me-2 icon-accent" size={14} /> {n.text}
-                                </li>
-                            ))}
-                        </ul>
-                    </Card>
-                </Col>
-            </Row>
-
-
-
-            <Row className="g-4">
-                <Col md={5} lg={4}>
-                    <Card className="h-100">
-                        <Card.Body>
-                            <div className="text-uppercase small fw-bold mb-2">Produkcja energii</div>
-                            <Table bordered hover size="sm">
-                                <thead>
-                                    <tr>
-                                        <th>Miesiąc</th>
-                                        <th>Wytworzona [kWh]</th>
-                                        <th>Oddana [kWh]</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {productionData.map((row, i) => (
-                                        <tr key={i}>
-                                            <td>{row.month}</td>
-                                            <td style={{ color: row.generated === 0 ? "#b08900" : "#357951" }}>
-                                                {row.generated === null ? "" : row.generated.toFixed(1)}
-                                            </td>
-                                            <td style={{ color: row.exported === 0 ? "#b08900" : "#357951" }}>
-                                                {row.exported === null ? "" : row.exported.toFixed(1)}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </Table>
-                            <Button variant="outline-secondary" size="sm" className="mt-2" onClick={exportCsv}>
-                                <Fa.FaFileCsv className="me-2" /> Eksport danych
-                            </Button>
-                        </Card.Body>
-                    </Card>
-                </Col>
-                <Col md={7} lg={8}>
-                    <Card className="h-100">
-                        <Card.Body>
-                            <div className="text-uppercase small fw-bold mb-2">Wykres produkcji</div>
-                            <div style={{ height: 480, minHeight: 150 }}>
-                                <Bar data={chartData} options={chartOptions} />
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
+                        <Table responsive hover size="sm" className="mb-0">
+                            <thead><tr><th>Okres</th><th>Pobrano [kWh]</th><th>Oddano [kWh]</th><th>Maks. eksport [kW]</th><th>Próbki</th></tr></thead>
+                            <tbody>{analytics.buckets.map((bucket) => (
+                                <tr key={bucket.startUtc}>
+                                    <td>{dateFormatter.format(new Date(bucket.startUtc))}</td>
+                                    <td>{numberFormatter.format(bucket.importedKwh)}</td>
+                                    <td>{numberFormatter.format(bucket.exportedKwh)}</td>
+                                    <td>{numberFormatter.format(bucket.maximumExportPowerKw)}</td>
+                                    <td>{bucket.sampleCount.toLocaleString('pl-PL')}</td>
+                                </tr>
+                            ))}</tbody>
+                        </Table>
+                    </Card.Body></Card>
+                </>
+            )}
         </Container>
     )
 }

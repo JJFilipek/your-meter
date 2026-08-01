@@ -1,299 +1,186 @@
-import { useState } from "react"
-import { Container, Row, Col, Card, Breadcrumb, Form, ButtonGroup, Button } from "react-bootstrap"
-import { Bar } from "react-chartjs-2"
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Breadcrumb, Button, ButtonGroup, Card, Col, Container, Form, Row, Spinner } from 'react-bootstrap'
+import { Bar } from 'react-chartjs-2'
 import {
-    Chart as ChartJS,
-    CategoryScale,
-    LinearScale,
     BarElement,
+    CategoryScale,
+    Chart as ChartJS,
+    Legend,
+    LinearScale,
     Tooltip,
-    Legend
-} from "chart.js"
-import * as Fa from "react-icons/fa"
+} from 'chart.js'
+import * as Fa from 'react-icons/fa'
+import { getMeterAnalytics, getMeters, type MeterAnalytics } from '../api/meters'
+import type { Meter } from '../types/infrastructure/meter'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
 
-const meters = [
-    { id: 1, name: "Farma PV 938 (A23)" },
-    { id: 2, name: "PV – licznik falownika (A22)" },
-    { id: 3, name: "Podlicznik – Piętro 1 (G11)" },
+const numberFormatter = new Intl.NumberFormat('pl-PL', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+})
+const dateFormatter = new Intl.DateTimeFormat('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+})
+
+const ranges = [
+    { label: '7 dni', days: 7, bucket: 'hour' as const },
+    { label: '30 dni', days: 30, bucket: 'day' as const },
+    { label: '180 dni', days: 180, bucket: 'day' as const },
 ]
 
-const years = ["2025", "2024", "2023", "2022", "2021", "2020"]
-
-const months = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
-    "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"]
-
-const dummyData = {
-    labels: months,
-    datasets: [
-        {
-            label: "Strefa 1",
-            data: [1600, 1500, 2300, 3300, 4700, 5200, 5800, 5600, 3700, 2200, 900, 300],
-            backgroundColor: "#c0f090"
-        },
-        {
-            label: "Strefa 2",
-            data: [1400, 1300, 1900, 2600, 3500, 4000, 5620, 5290, 3430, 2090, 910, 210],
-            backgroundColor: "#7ecb20"
-        }
-    ]
-}
-
-const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-        legend: { position: "top" as const }
-    },
-    scales: {
-        x: { stacked: true },
-        y: { stacked: true, beginAtZero: true }
-    }
-}
-
-const stats = {
-    tariff: "13.447 kWh",
-    user: "44.410 kWh",
-    max: "58.127 kWh",
-    min: "20.117 kWh",
-    totalEnergy: "120.050 kWh"
-}
-
 export function ChartsPage() {
-    const [selectedMeter, setSelectedMeter] = useState(meters[0].id)
-    const [selectedYearFrom, setSelectedYearFrom] = useState("2024")
-    const [selectedYearTo, setSelectedYearTo] = useState("2025")
-    const [selectedEnergyType, setSelectedEnergyType] = useState("Oddana A-")
-    const [selectedTariffSim, setSelectedTariffSim] = useState("")
-    const [selectedRange, setSelectedRange] = useState("Rok")
-    const [selectedChart, setSelectedChart] = useState("Wykres energii")
+    const [meters, setMeters] = useState<Meter[]>([])
+    const [selectedMeter, setSelectedMeter] = useState('')
+    const [rangeDays, setRangeDays] = useState(30)
+    const [analytics, setAnalytics] = useState<MeterAnalytics | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+        const controller = new AbortController()
+        void getMeters(controller.signal)
+            .then((items) => {
+                setMeters(items)
+                setSelectedMeter((current) => current || items[0]?.id || '')
+            })
+            .catch((loadError) => {
+                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
+                setError(loadError instanceof Error ? loadError.message : 'Nie udało się pobrać liczników.')
+            })
+        return () => controller.abort()
+    }, [])
+
+    useEffect(() => {
+        if (!selectedMeter) {
+            setIsLoading(false)
+            return
+        }
+
+        const controller = new AbortController()
+        const selectedRange = ranges.find((item) => item.days === rangeDays) ?? ranges[1]
+        const to = new Date()
+        const from = new Date(to.getTime() - selectedRange.days * 24 * 60 * 60 * 1000)
+        setIsLoading(true)
+        setError(null)
+        void getMeterAnalytics(
+            selectedMeter,
+            from.toISOString(),
+            to.toISOString(),
+            selectedRange.bucket,
+            controller.signal,
+        )
+            .then(setAnalytics)
+            .catch((loadError) => {
+                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
+                setError(loadError instanceof Error ? loadError.message : 'Nie udało się pobrać danych wykresu.')
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setIsLoading(false)
+            })
+        return () => controller.abort()
+    }, [rangeDays, selectedMeter])
+
+    const chartData = useMemo(() => ({
+        labels: analytics?.buckets.map((bucket) => dateFormatter.format(new Date(bucket.startUtc))) ?? [],
+        datasets: [
+            {
+                label: 'Energia pobrana A+ [kWh]',
+                data: analytics?.buckets.map((bucket) => bucket.importedKwh) ?? [],
+                backgroundColor: '#660032',
+            },
+            {
+                label: 'Energia oddana A- [kWh]',
+                data: analytics?.buckets.map((bucket) => bucket.exportedKwh) ?? [],
+                backgroundColor: '#7ecb20',
+            },
+        ],
+    }), [analytics])
+
+    const bucketTotals = analytics?.buckets.map((bucket) => bucket.importedKwh + bucket.exportedKwh) ?? []
+    const average = bucketTotals.length > 0
+        ? bucketTotals.reduce((sum, value) => sum + value, 0) / bucketTotals.length
+        : 0
+    const maximum = bucketTotals.length > 0 ? Math.max(...bucketTotals) : 0
+    const minimum = bucketTotals.length > 0 ? Math.min(...bucketTotals) : 0
 
     return (
         <Container fluid>
-            <Breadcrumb className="mb-3">
-                <Breadcrumb.Item active>Wykresy</Breadcrumb.Item>
-            </Breadcrumb>
-
-            <Row className="align-items-center mb-4">
+            <Breadcrumb className="mb-3"><Breadcrumb.Item active>Wykresy</Breadcrumb.Item></Breadcrumb>
+            <Row className="align-items-center mb-4 g-3">
                 <Col>
-                    <h3 className="fw-semibold mb-0">
-                        <Fa.FaChartBar className="me-2 icon-accent" /> Wykresy
-                    </h3>
+                    <h3 className="fw-semibold mb-0"><Fa.FaChartBar className="me-2 icon-accent" /> Wykresy energii</h3>
+                    <div className="text-muted small mt-1">Dane agregowane bezpośrednio z rejestrów liczników na VPS-ie.</div>
                 </Col>
                 <Col xs="auto">
                     <Form.Group className="d-flex align-items-center gap-2">
                         <Form.Label className="mb-0">Licznik:</Form.Label>
-                        <Form.Select style={{ minWidth: 220 }} value={selectedMeter} onChange={e => setSelectedMeter(Number(e.target.value))}>
-                            {meters.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                        <Form.Select value={selectedMeter} onChange={(event) => setSelectedMeter(event.target.value)} style={{ minWidth: 260 }}>
+                            {meters.map((meter) => <option key={meter.id} value={meter.id}>{meter.name} ({meter.tariff})</option>)}
                         </Form.Select>
                     </Form.Group>
                 </Col>
             </Row>
 
             <ButtonGroup className="mb-3">
-                {[
-                    "Wykres energii",
-                    "Wykres generacji",
-                    "Wykres eksportu",
-                    "Wykres autokonsumpcji",
-                    "Wykres bilansu energetycznego",
-                    "Wykres mocy szczytowej",
-                    "Wykres strat przesyłowych",
-                    "Wykres kosztów energii",
-                ].map((name) => (
-                    <Button
-                        key={name}
-                        variant={selectedChart === name ? "primary" : "outline-secondary"}
-                        onClick={() => setSelectedChart(name)}
-                    >
-                        {name}
+                {ranges.map((range) => (
+                    <Button key={range.days} variant={rangeDays === range.days ? 'primary' : 'outline-secondary'} onClick={() => setRangeDays(range.days)}>
+                        {range.label}
                     </Button>
                 ))}
             </ButtonGroup>
 
-            <div className="border rounded px-3 py-2 d-flex align-items-center justify-content-between flex-wrap gap-3 mb-2">
-                <ButtonGroup size="sm">
-                    {["Dzień", "Tydzień", "Miesiąc", "Rok"].map(label => (
-                        <Button
-                            key={label}
-                            variant={selectedRange === label ? "primary" : "outline-secondary"}
-                            onClick={() => setSelectedRange(label)}
-                        >
-                            {label}
-                        </Button>
-                    ))}
-                </ButtonGroup>
-
-                <div className="d-flex align-items-center gap-1">
-                    <span className="text-muted small">Rok</span>
-                    <Form.Select
-                        size="sm"
-                        style={{ minWidth: 90 }}
-                        value={selectedYearFrom}
-                        onChange={e => setSelectedYearFrom(e.target.value)}
-                    >
-                        {years.map(y => (
-                            <option key={y} value={y}>{y}</option>
+            {error && <Alert variant="danger">{error}</Alert>}
+            {isLoading ? (
+                <div className="text-center py-5"><Spinner animation="border" /><div className="mt-2">Pobieranie pomiarów...</div></div>
+            ) : !analytics || analytics.buckets.length === 0 ? (
+                <Alert variant="info">Brak pomiarów w wybranym okresie.</Alert>
+            ) : (
+                <>
+                    <Row className="g-3 mb-3">
+                        {[
+                            { label: 'Pobrano', value: analytics.importedKwh, icon: Fa.FaArrowDown },
+                            { label: 'Oddano', value: analytics.exportedKwh, icon: Fa.FaArrowUp },
+                            { label: 'Średnia na przedział', value: average, icon: Fa.FaChartLine },
+                            { label: 'Maksimum przedziału', value: maximum, icon: Fa.FaBolt },
+                        ].map((card) => (
+                            <Col md={6} xl={3} key={card.label}>
+                                <Card className="h-100 p-3">
+                                    <div className="text-muted text-uppercase small">{card.label}</div>
+                                    <div className="fs-4 mt-1"><card.icon className="me-2 icon-accent" />{numberFormatter.format(card.value)} kWh</div>
+                                </Card>
+                            </Col>
                         ))}
-                    </Form.Select>
-                    <span className="mx-1">→</span>
-                    <Form.Select
-                        size="sm"
-                        style={{ minWidth: 90 }}
-                        value={selectedYearTo}
-                        onChange={e => setSelectedYearTo(e.target.value)}
-                    >
-                        {years.map(y => (
-                            <option key={y} value={y}>{y}</option>
-                        ))}
-                    </Form.Select>
-                </div>
-            </div>
-            <Row className="g-4">
-                <Col md={9}>
-                    <Card className="h-100">
-                        <Card.Body className="h-100 d-flex flex-column">
-                            <div className="text-uppercase small fw-bold mb-2">Wykres energii</div>
-                            <div style={{ height: 520, minHeight: 150 }}>
-                                <Bar data={dummyData} options={chartOptions} />
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-
-                <Col md={3} className="d-flex flex-column">
-                    <div className="d-flex mb-2">
-                        <div className="d-flex align-items-center gap-2">
-                            <span className="text-muted small">Energia</span>
-                            <Form.Select
-                                size="sm"
-                                style={{ minWidth: 140 }}
-                                value={selectedEnergyType}
-                                onChange={(e) => setSelectedEnergyType(e.target.value)}
-                            >
-                                <option>Pobrana A+</option>
-                                <option>Oddana A-</option>
-                            </Form.Select>
-                        </div>
-                    </div>
-
-                    <Card className="h-100">
-                        <Card.Body className="d-flex flex-column justify-content-between h-100">
-                            <div className="d-flex flex-column justify-content-between flex-grow-1">
-                                <div className="text-uppercase small fw-bold mb-3">Statystyki</div>
-                                <div className="d-flex alsgn-items-center mb-4">
-                                    <Fa.FaChartBar className="me-3" size={28} color="#911a52" />
-                                    <div>
-                                        <div className="fw-semibold" style={{ fontSize: "1rem" }}>Średnia dla taryfy</div>
-                                        <div className="fw-bold">{stats.tariff}</div>
-                                    </div>
+                    </Row>
+                    <Row className="g-3">
+                        <Col xl={9}>
+                            <Card className="h-100"><Card.Body>
+                                <div className="text-uppercase small fw-bold mb-2">Przyrosty rejestrów w czasie</div>
+                                <div style={{ height: 500 }}>
+                                    <Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} />
                                 </div>
-
-                                <div className="d-flex align-items-center mb-4">
-                                    <Fa.FaChartBar className="me-3" size={28} color="#69b322" />
-                                    <div>
-                                        <div className="fw-semibold" style={{ fontSize: "1rem" }}>Twoja średnia</div>
-                                        <div className="fw-bold">{stats.user}</div>
-                                    </div>
-                                </div>
-
-                                <div className="d-flex align-items-center mb-4">
-                                    <Fa.FaArrowUp className="me-3" size={28} color="#888" />
-                                    <div>
-                                        <div className="fw-semibold" style={{ fontSize: "1rem" }}>Maksimum</div>
-                                        <div className="fw-bold">{stats.max}</div>
-                                        <div className="text-muted small">2024-07-01 00:00:00</div>
-                                    </div>
-                                </div>
-
-                                <div className="d-flex align-items-center mb-4">
-                                    <Fa.FaArrowDown className="me-3" size={28} color="#b6cc8e" />
-                                    <div>
-                                        <div className="fw-semibold" style={{ fontSize: "1rem" }}>Minimum</div>
-                                        <div className="fw-bold">{stats.min}</div>
-                                        <div className="text-muted small">2024-12-01 00:00:00</div>
-                                    </div>
-                                </div>
-
-                                <div className="d-flex align-items-center mb-5">
-                                    <Fa.FaWaveSquare className="me-3" size={28} color="#17a2b8" />
-                                    <div>
-                                        <div className="fw-semibold" style={{ fontSize: "1rem" }}>Zmienność zużycia</div>
-                                        <div className="fw-bold">±12.5%</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="mt-auto text-center border-top pt-3">
-                                <span className="fw-semibold" style={{ fontSize: "1rem" }}>Energia całkowita:</span>{" "}
-                                <span className="text-success fw-bold">{stats.totalEnergy}</span>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-
-            </Row>
-
-
-
-            <Row className="g-4 mt-3">
-                <Col md={9}>
-                    <Card>
-                        <Card.Body>
-                            <div className="text-uppercase small fw-bold mb-2">Podział na strefy</div>
-
-                            <div className="d-flex justify-content-center gap-4 mb-2">
-                                <div className="d-flex align-items-center gap-1">
-                                    <div style={{ width: 20, height: 10, backgroundColor: "#c0f090" }}></div>
-                                    <span className="small text-muted">Strefa 1</span>
-                                </div>
-                                <div className="d-flex align-items-center gap-1">
-                                    <div style={{ width: 20, height: 10, backgroundColor: "#7ecb20" }}></div>
-                                    <span className="small text-muted">Strefa 2</span>
-                                </div>
-                            </div>
-
-                            <div className="d-flex align-items-center" style={{ height: 40, background: "#dff5c0", borderRadius: 6 }}>
-                                <div style={{ width: "40%", height: "100%", background: "#c0f090" }}></div>
-                                <div style={{ width: "60%", height: "100%", background: "#7ecb20" }}></div>
-                            </div>
-
-                            <div className="d-flex justify-content-between small text-muted mt-2">
-                                <span>0</span>
-                                <span>20</span>
-                                <span>40</span>
-                                <span>60</span>
-                                <span>80</span>
-                                <span>100%</span>
-                            </div>
-
-                        </Card.Body>
-                    </Card>
-                </Col>
-
-                <Col md={3}>
-                    <Card style={{ height: "100%" }}>
-                        <Card.Body className="d-flex flex-column justify-content-between h-100">
-                            <div>
-                                <div className="text-uppercase small fw-bold mb-2">Symulacja taryfy</div>
-                                <Form.Select
-                                    value={selectedTariffSim}
-                                    onChange={e => setSelectedTariffSim(e.target.value)}
-                                >
-                                    <option value="">Wybierz taryfę</option>
-                                    <option>G11</option>
-                                    <option>G12</option>
-                                    <option>G12W</option>
-                                    <option>C11</option>
-                                    <option>C12</option>
-                                    <option>A23</option>
-                                </Form.Select>
-                            </div>
-                        </Card.Body>
-                    </Card>
-                </Col>
-            </Row>
+                            </Card.Body></Card>
+                        </Col>
+                        <Col xl={3}>
+                            <Card className="h-100"><Card.Body>
+                                <div className="text-uppercase small fw-bold mb-3">Statystyki pomiarów</div>
+                                <dl className="mb-0">
+                                    <dt>Licznik</dt><dd>{analytics.serialNo}</dd>
+                                    <dt>Taryfa</dt><dd>{analytics.tariff}</dd>
+                                    <dt>Minimum przedziału</dt><dd>{numberFormatter.format(minimum)} kWh</dd>
+                                    <dt>Średnie obciążenie</dt><dd>{numberFormatter.format(analytics.averageAbsolutePowerKw)} kW</dd>
+                                    <dt>Maksymalny pobór mocy</dt><dd>{numberFormatter.format(analytics.maximumImportPowerKw)} kW</dd>
+                                    <dt>Maksymalny eksport mocy</dt><dd>{numberFormatter.format(analytics.maximumExportPowerKw)} kW</dd>
+                                    <dt>Liczba próbek</dt><dd>{analytics.buckets.reduce((sum, bucket) => sum + bucket.sampleCount, 0).toLocaleString('pl-PL')}</dd>
+                                </dl>
+                            </Card.Body></Card>
+                        </Col>
+                    </Row>
+                </>
+            )}
         </Container>
     )
 }

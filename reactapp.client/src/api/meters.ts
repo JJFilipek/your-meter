@@ -48,6 +48,39 @@ export type MeterReading = {
     quality: 'Valid' | 'Estimated' | 'Invalid'
 }
 
+export type AnalyticsBucket = {
+    startUtc: string
+    endUtc: string
+    importedKwh: number
+    exportedKwh: number
+    averagePowerKw: number
+    averageAbsolutePowerKw: number
+    maximumImportPowerKw: number
+    maximumExportPowerKw: number
+    sampleCount: number
+}
+
+export type MeterAnalytics = {
+    meterId: string
+    serialNo: string
+    name: string
+    tariff: string
+    referencePowerKw: number | null
+    fromUtc: string
+    toUtc: string
+    bucket: 'hour' | 'day' | 'month'
+    importedKwh: number
+    exportedKwh: number
+    latestPowerKw: number | null
+    latestReadingAtUtc: string | null
+    maximumImportPowerKw: number
+    maximumImportPowerAtUtc: string | null
+    maximumExportPowerKw: number
+    maximumExportPowerAtUtc: string | null
+    averageAbsolutePowerKw: number
+    buckets: AnalyticsBucket[]
+}
+
 export type Simulator = {
     id: string
     serialNo: string
@@ -114,6 +147,17 @@ export const getMeterReadings = (
         limit: '10000',
     })
     return apiRequest<MeterReading[]>(`/api/meters/${meterId}/readings?${query}`, { signal })
+}
+
+export const getMeterAnalytics = (
+    meterId: string,
+    fromUtc: string,
+    toUtc: string,
+    bucket: MeterAnalytics['bucket'],
+    signal?: AbortSignal,
+) => {
+    const query = new URLSearchParams({ fromUtc, toUtc, bucket })
+    return apiRequest<MeterAnalytics>(`/api/meters/${meterId}/analytics?${query}`, { signal })
 }
 
 export const getSimulators = (signal?: AbortSignal) =>

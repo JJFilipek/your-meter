@@ -1,402 +1,197 @@
-import {useEffect, useState} from "react";
-import { Container, Row, Col, Breadcrumb, Form, Card, Button, Table } from "react-bootstrap";
-import * as Fa from "react-icons/fa";
-import { Line } from "react-chartjs-2";
+import { useEffect, useMemo, useState } from 'react'
+import { Alert, Breadcrumb, Card, Col, Container, Form, Row, Spinner, Table } from 'react-bootstrap'
+import { Line } from 'react-chartjs-2'
 import {
-    Chart as ChartJS,
     CategoryScale,
+    Chart as ChartJS,
+    Legend,
     LinearScale,
     LineElement,
     PointElement,
     Tooltip,
-    Legend
-} from "chart.js";
+} from 'chart.js'
+import * as Fa from 'react-icons/fa'
+import { getMeterAnalytics, getMeters, type MeterAnalytics } from '../../api/meters'
+import type { Meter } from '../../types/infrastructure/meter'
 
-ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 
-const meters = [
-    { id: 1, name: "Farma PV 938 (A23)" },
-    { id: 2, name: "PV – licznik falownika (A22)" },
-    { id: 3, name: "Podlicznik Piętro 1 (G11)" }
-];
-
-const registers = [
-    { id: 1, name: "Pmax+ (1.6.0)" },
-    { id: 2, name: "Pmax- (2.6.0)" }
-]
-
-
-const CONNECTION_POWER = 12;
-const ALERT_THRESHOLD_PCT = 0.9;
+const dateInput = (date: Date) => date.toISOString().slice(0, 10)
+const today = new Date()
+const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+const numberFormatter = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const dateTimeFormatter = new Intl.DateTimeFormat('pl-PL', {
+    day: '2-digit',
+    month: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+})
+const dayFormatter = new Intl.DateTimeFormat('pl-PL', { day: '2-digit', month: '2-digit', year: 'numeric' })
 
 export function PmaxPage() {
-    const [selectedMeter, setSelectedMeter] = useState(meters[2].id);
-    const [selectedRegister, setSelectedRegister] = useState(registers[0].id)
-    const [contractedPower] = useState(10);
-    const [dateFrom, setDateFrom] = useState("2025-05-30");
-    const [dateTo, setDateTo] = useState("2025-05-31");
-    const [alertThreshold] = useState(Math.round(10 * ALERT_THRESHOLD_PCT * 10) / 10);
-
-
-    const powerValues = [8.2, 10.5, 8.0, 6.2, 5.0, 5.5, 8.0, 12.3, 9.2, 6.4, 5.0, 4.2, 3.7, 3.5, 4.1, 5, 7.3, 11.0, 9.8, 8.0, 6.5, 4.8, 4.0, 3.6];
-
-    const [theme, setTheme] = useState(document.body.dataset.theme);
+    const [meters, setMeters] = useState<Meter[]>([])
+    const [selectedMeter, setSelectedMeter] = useState('')
+    const [register, setRegister] = useState<'import' | 'export'>('import')
+    const [dateFrom, setDateFrom] = useState(dateInput(weekAgo))
+    const [dateTo, setDateTo] = useState(dateInput(today))
+    const [analytics, setAnalytics] = useState<MeterAnalytics | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
-        const observer = new MutationObserver(() => {
-            setTheme(document.body.dataset.theme);
-        });
-        observer.observe(document.body, {
-            attributes: true,
-            attributeFilter: ["data-theme"]
-        });
-        return () => observer.disconnect();
-    }, []);
+        const controller = new AbortController()
+        void getMeters(controller.signal)
+            .then((items) => {
+                setMeters(items)
+                setSelectedMeter((current) => current || items[0]?.id || '')
+            })
+            .catch((loadError) => {
+                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
+                setError(loadError instanceof Error ? loadError.message : 'Nie udało się pobrać liczników.')
+            })
+        return () => controller.abort()
+    }, [])
 
-    const chartData = {
-        labels: Array.from({ length: 24 }, (_, i) => `${i}:00`),
+    useEffect(() => {
+        if (!selectedMeter || !dateFrom || !dateTo) {
+            setIsLoading(false)
+            return
+        }
+        const from = new Date(`${dateFrom}T00:00:00`)
+        const to = new Date(`${dateTo}T23:59:59`)
+        if (from >= to) {
+            setError('Data początkowa musi być wcześniejsza od końcowej.')
+            setIsLoading(false)
+            return
+        }
+
+        const controller = new AbortController()
+        setIsLoading(true)
+        setError(null)
+        void getMeterAnalytics(selectedMeter, from.toISOString(), to.toISOString(), 'hour', controller.signal)
+            .then(setAnalytics)
+            .catch((loadError) => {
+                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
+                setError(loadError instanceof Error ? loadError.message : 'Nie udało się pobrać danych mocy.')
+            })
+            .finally(() => {
+                if (!controller.signal.aborted) setIsLoading(false)
+            })
+        return () => controller.abort()
+    }, [dateFrom, dateTo, selectedMeter])
+
+    const referencePower = analytics?.referencePowerKw ?? Math.max(analytics?.maximumImportPowerKw ?? 0, 1)
+    const alertThreshold = referencePower * 0.9
+    const selectedMaximum = register === 'import'
+        ? analytics?.maximumImportPowerKw ?? 0
+        : analytics?.maximumExportPowerKw ?? 0
+    const selectedMaximumAt = register === 'import'
+        ? analytics?.maximumImportPowerAtUtc
+        : analytics?.maximumExportPowerAtUtc
+    const currentPower = register === 'import'
+        ? Math.max(0, analytics?.latestPowerKw ?? 0)
+        : Math.max(0, -(analytics?.latestPowerKw ?? 0))
+    const exceedances = analytics?.buckets.filter((bucket) => (
+        register === 'import' ? bucket.maximumImportPowerKw : bucket.maximumExportPowerKw
+    ) >= alertThreshold).length ?? 0
+
+    const dailyMaximums = useMemo(() => {
+        const values = new Map<string, number>()
+        for (const bucket of analytics?.buckets ?? []) {
+            const day = bucket.startUtc.slice(0, 10)
+            const value = register === 'import' ? bucket.maximumImportPowerKw : bucket.maximumExportPowerKw
+            values.set(day, Math.max(values.get(day) ?? 0, value))
+        }
+        return [...values.entries()].sort(([left], [right]) => right.localeCompare(left))
+    }, [analytics, register])
+
+    const chartData = useMemo(() => ({
+        labels: analytics?.buckets.map((bucket) => dateTimeFormatter.format(new Date(bucket.startUtc))) ?? [],
         datasets: [
             {
-                label: "Moc chwilowa [kW]",
-                data: powerValues,
-                borderColor: "#660032",
-                backgroundColor: "rgba(102,0,50,0.1)",
+                label: register === 'import' ? 'Pmax poboru [kW]' : 'Pmax oddawania [kW]',
+                data: analytics?.buckets.map((bucket) => register === 'import'
+                    ? bucket.maximumImportPowerKw
+                    : bucket.maximumExportPowerKw) ?? [],
+                borderColor: '#660032',
+                backgroundColor: 'rgba(102,0,50,0.12)',
                 fill: true,
-                tension: 0.4,
-                pointRadius: 2
+                tension: 0.25,
+                pointRadius: 1,
             },
             {
-                label: `Moc umowna (${contractedPower} kW)`,
-                data: Array(24).fill(contractedPower),
-                borderColor: "#b08900",
-                borderDash: [5, 5],
-                borderWidth: 2,
-                pointRadius: 0
+                label: `Próg 90% mocy referencyjnej (${numberFormatter.format(alertThreshold)} kW)`,
+                data: analytics?.buckets.map(() => alertThreshold) ?? [],
+                borderColor: '#b08900',
+                borderDash: [6, 4],
+                pointRadius: 0,
             },
-            {
-                label: `Próg alertu (${alertThreshold} kW)`,
-                data: Array(24).fill(alertThreshold),
-                borderColor: "#357951",
-                borderDash: [8, 4],
-                borderWidth: 2,
-                pointRadius: 0
-            },
-            {
-                label: `Moc przyłącza (${CONNECTION_POWER} kW)`,
-                data: Array(24).fill(CONNECTION_POWER),
-                borderColor: "#d90429",
-                borderDash: [2, 2],
-                borderWidth: 2,
-                pointRadius: 0
-            }
-        ]
-    };
-
-    const chartOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { position: "top" as const }
-        },
-        scales: {
-            y: { beginAtZero: true }
-        }
-    };
-
-    const powerCards = [
-        {
-            label: "Aktualna moc chwilowa",
-            value: "5,8 kW",
-            subtitle: `83% mocy umownej (${contractedPower} kW)`,
-            icon: Fa.FaBolt
-        },
-        {
-            label: "Moc szczytowa (Pmax) w maju",
-            value: "9,1 kW",
-            subtitle: "osiągnięto 22.05 o 14:34",
-            icon: Fa.FaTachometerAlt
-        },
-        {
-            label: "Przekroczenia 90% mocy umownej",
-            value: "2 razy",
-            subtitle: "w tym miesiącu",
-            icon: Fa.FaExclamationTriangle
-        },
-        {
-            label: "Średnie obciążenie",
-            value: "4,3 kW",
-            subtitle: "dla ostatnich 7 dni",
-            icon: Fa.FaChartLine
-        }
-    ];
-
-    const pmaxInPeriod = Math.max(...powerValues);
-    const [details, setDetails] = useState(false);
+        ],
+    }), [alertThreshold, analytics, register])
 
     return (
         <Container fluid>
-            <Breadcrumb className="mb-3">
-                <Breadcrumb.Item active>Moc szczytowa (Pmax)</Breadcrumb.Item>
-            </Breadcrumb>
-
-            <Row className="align-items-center mb-3">
+            <Breadcrumb className="mb-3"><Breadcrumb.Item active>Moc szczytowa</Breadcrumb.Item></Breadcrumb>
+            <Row className="align-items-center mb-4 g-3">
                 <Col>
-                    <h3 className="fw-semibold mb-0">
-                        <Fa.FaArrowUp className="me-2 icon-accent" /> Moc szczytowa (Pmax)
-                    </h3>
+                    <h3 className="fw-semibold mb-0"><Fa.FaArrowUp className="me-2 icon-accent" /> Moc szczytowa (Pmax)</h3>
+                    <div className="text-muted small mt-1">Maksima godzinowe wyznaczone z rzeczywistych próbek mocy.</div>
                 </Col>
-                <Col xs="auto">
-                    <Form.Group className="d-flex align-items-center gap-2">
-                        <Form.Label className="mb-0">Rejestr:</Form.Label>
-                        <Form.Select style={{ minWidth: 120 }} value={selectedRegister} onChange={e => setSelectedRegister(Number(e.target.value))}>
-                            {registers.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                        </Form.Select>
-                        <Form.Label className="mb-0">Licznik:</Form.Label>
-                        <Form.Select style={{ minWidth: 220 }} value={selectedMeter} onChange={e => setSelectedMeter(Number(e.target.value))}>
-                            {meters.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                        </Form.Select>
-                    </Form.Group>
+                <Col xs="auto" className="d-flex gap-2 flex-wrap">
+                    <Form.Select value={register} onChange={(event) => setRegister(event.target.value as 'import' | 'export')} style={{ minWidth: 180 }}>
+                        <option value="import">Pmax+ pobór</option>
+                        <option value="export">Pmax- oddawanie</option>
+                    </Form.Select>
+                    <Form.Select value={selectedMeter} onChange={(event) => setSelectedMeter(event.target.value)} style={{ minWidth: 260 }}>
+                        {meters.map((meter) => <option key={meter.id} value={meter.id}>{meter.name} ({meter.tariff})</option>)}
+                    </Form.Select>
                 </Col>
             </Row>
 
-            <Row className="g-4 mb-3">
-                {powerCards.map((card, i) => (
-                    <Col md={6} lg={3} key={i}>
-                        <Card className="h-100 p-3">
-                            <div className="text-muted text-uppercase small">{card.label}</div>
-                            <div className="fs-4 d-flex align-items-center mt-1">
-                                <card.icon className="me-2 icon-accent" size={24} />
-                                {card.value}
-                            </div>
-                            {card.subtitle && <div className="text-muted small mt-1">{card.subtitle}</div>}
-                        </Card>
-                    </Col>
-                ))}
+            <Row className="g-2 mb-3">
+                <Col sm="auto"><Form.Control type="date" value={dateFrom} max={dateTo} onChange={(event) => setDateFrom(event.target.value)} /></Col>
+                <Col sm="auto"><Form.Control type="date" value={dateTo} min={dateFrom} max={dateInput(new Date())} onChange={(event) => setDateTo(event.target.value)} /></Col>
             </Row>
 
-            <Row className="g-4 mb-4 align-items-stretch">
-                <Col lg={2}>
-                    <Card className="h-100 p-3">
-                        <Card.Title className="text-uppercase small fw-bold mb-2">Moc szczytowa (Pmax)</Card.Title>
-                        <div className="text-muted small mb-2">Rejestr mocy szczytowej z ostatnich dni</div>
-                        <table className="table table-sm table-hover mb-0 text-center align-middle">
-                            <thead>
-                                <tr><th>Data</th><th>Moc szczytowa [kW]</th></tr>
-                            </thead>
-                            <tbody>
-                                <tr><td>30.05</td><td style={{ color: "#984040" }}>12,2</td></tr>
-                                <tr><td>29.05</td><td style={{ color: "#984040" }}>10,4</td></tr>
-                                <tr><td>28.05</td><td style={{ color: "#357951" }}>7,8</td></tr>
-                                <tr><td>27.05</td><td style={{ color: "#984040" }}>10,1</td></tr>
-                                <tr><td>26.05</td><td style={{ color: "#b08900" }}>9,6</td></tr>
-                                <tr><td>25.05</td><td style={{ color: "#b08900" }}>8,9</td></tr>
-                                <tr><td>24.05</td><td style={{ color: "#357951" }}>8,0</td></tr>
-                                <tr><td>23.05</td><td style={{ color: "#357951" }}>7,8</td></tr>
-                                <tr><td>22.05</td><td style={{ color: "#357951" }}>7,2</td></tr>
-                                <tr><td>21.05</td><td style={{ color: "#b08900" }}>9,6</td></tr>
-                                <tr><td>20.05</td><td style={{ color: "#984040" }}>12,2</td></tr>
-                                <tr><td>19.05</td><td style={{ color: "#357951" }}>7,8</td></tr>
-                                <tr><td>18.05</td><td style={{ color: "#357951" }}>7,8</td></tr>
-                                <tr><td>17.05</td><td style={{ color: "#b08900" }}>8,9</td></tr>
-                                <tr><td>16.05</td><td style={{ color: "#357951" }}>8,0</td></tr>
-                            </tbody>
-                        </table>
-                    </Card>
-                </Col>
-                <Col lg={6}>
-                    <Card className="h-100 p-3">
-                        <div className="d-flex justify-content-between align-items-center mb-3">
-                            <div className="d-flex align-items-center gap-2">
-                                <Form.Control type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} />
-                                <span style={{ fontSize: '1.5rem' }}>→</span>
-                                <Form.Control type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} />
-                            </div>
-                            <Button variant="outline-secondary" onClick={() => alert("Zmień próg alertu")}>
-                                <Fa.FaWrench className="me-2" /> Zmień próg alertu
-                            </Button>
-                        </div>
-                        <Card.Title className="text-uppercase small fw-bold mb-2">Moc chwilowa względem limitów</Card.Title>
-                        <div style={{ height: 500 }}>
-                            <Line data={chartData} options={chartOptions} />
-                        </div>
-                        <div className="mt-2 mb-0 text-end text-muted">
-                            <span>
-                                Moc szczytowa (Pmax) we wskazanym okresie: <b>{pmaxInPeriod.toFixed(1)} kW</b>
-                            </span>
-                        </div>
-                    </Card>
-                </Col>
-                <Col lg={4} className="d-flex flex-column">
-                    <Card className="p-3 mb-3">
-                        <Card.Title className="text-uppercase small fw-bold mb-3">Alerty i rekomendacje</Card.Title>
-                        <ul className="ps-3 small mb-0">
-                            <li className="mb-2">
-                                <Fa.FaExclamationTriangle className="me-2 icon-accent" />
-                                22.05 14:30 – przekroczono próg alertu: 10,7 kW (próg: 9 kW)
-                            </li>
-                            <li className="mb-2">
-                                <Fa.FaExclamationCircle className="me-2 icon-accent" />
-                                W maju zanotowano 3 przekroczenia 90% mocy umownej
-                            </li>
-                            <li className="mb-2">
-                                <Fa.FaChartLine className="me-2 icon-accent" />
-                                Najczęstsze szczyty między 13:00 a 15:00 – zalecane ograniczenie pracy urządzeń w tym czasie
-                            </li>
-                            <li className="mb-2">
-                                <Fa.FaBatteryThreeQuarters className="me-2 icon-accent" />
-                                Średnie wykorzystanie mocy umownej w ostatnim miesiącu: 68%
-                            </li>
-                        </ul>
-                    </Card>
-                    <Card className="p-4 d-flex flex-column h-100 justify-content-between">
-                        {!details ? (
-                            <>
-                                <Card.Title className="text-uppercase small fw-bold mb-4">
-                                    <span className="d-flex align-items-center gap-2">
-                                        Koszta przekroczeń w podanym okresie
-                                    </span>
-                                </Card.Title>
-                                <div className="mb-4">
-                                    <div className="d-flex align-items-center justify-content-between pb-2 border-bottom mb-2">
-                                        <span className="text-muted">Przekroczenia mocy umownej</span>
-                                        <span className="fw-bold" style={{ fontSize: 22, color: "#b08900" }}>2</span>
-                                    </div>
-                                    <div className="d-flex align-items-center justify-content-between pb-2 border-bottom mb-2">
-                                        <span className="text-muted">Przekroczenia mocy przyłącza</span>
-                                        <span className="fw-bold" style={{ fontSize: 22, color: "#d90429" }}>1</span>
-                                    </div>
-                                    <div className="d-flex align-items-center justify-content-between pt-2">
-                                        <span className="text-muted">Dodatkowe koszty</span>
-                                        <span className="fw-semibold" style={{ fontSize: 20 }}>60,45 zł</span>
-                                    </div>
-                                </div>
-                                <div className="impact-card px-4 py-3 mb-3 rounded-3" style={{ border: "1.5px solid #b08900" }}>
-                                    <div className="d-flex justify-content-between align-items-center mb-1" >
-                                        <div className="text-muted small">Wpływ na rachunek:</div>
-                                        <Button
-                                            variant="link"
-                                            size="sm"
-                                            style={{ textDecoration: "none", fontWeight: 500, color: "#660032" }}
-                                            onClick={() => setDetails(true)}
-                                        >
-                                            <Fa.FaListUl className="me-1" /> Szczegóły
-                                        </Button>
-                                    </div>
-                                    <span className="fw-bold" style={{ fontSize: 28, color: "#660032" }}>+18%</span>
-                                    <div className="text-muted small mt-1">szacowany wzrost kosztów w maju</div>
-                                </div>
+            {error && <Alert variant="danger">{error}</Alert>}
+            {isLoading ? (
+                <div className="text-center py-5"><Spinner animation="border" /><div className="mt-2">Analiza profilu mocy...</div></div>
+            ) : !analytics || analytics.buckets.length === 0 ? (
+                <Alert variant="info">Brak pomiarów w wybranym okresie.</Alert>
+            ) : (
+                <>
+                    <Row className="g-3 mb-3">
+                        {[
+                            { label: 'Aktualna moc', value: currentPower, subtitle: analytics.latestReadingAtUtc ? dateTimeFormatter.format(new Date(analytics.latestReadingAtUtc)) : '-', icon: Fa.FaBolt },
+                            { label: 'Moc szczytowa', value: selectedMaximum, subtitle: selectedMaximumAt ? dateTimeFormatter.format(new Date(selectedMaximumAt)) : '-', icon: Fa.FaTachometerAlt },
+                            { label: 'Średnie obciążenie', value: analytics.averageAbsolutePowerKw, subtitle: 'średnia wartości bezwzględnej', icon: Fa.FaChartLine },
+                            { label: 'Przekroczenia progu', value: exceedances, subtitle: `próg ${numberFormatter.format(alertThreshold)} kW`, icon: Fa.FaExclamationTriangle, unit: '' },
+                        ].map((card) => (
+                            <Col md={6} xl={3} key={card.label}><Card className="h-100 p-3">
+                                <div className="text-muted text-uppercase small">{card.label}</div>
+                                <div className="fs-4 mt-1"><card.icon className="me-2 icon-accent" />{numberFormatter.format(card.value)}{card.unit === '' ? '' : ' kW'}</div>
+                                <div className="text-muted small mt-1">{card.subtitle}</div>
+                            </Card></Col>
+                        ))}
+                    </Row>
 
-
-                                <div className="mt-auto small text-muted pt-4">
-                                    Koszty przekroczeń wynikają z opłat za ponadumowne zużycie energii.
-                                    <br />
-                                    <span style={{ color: "#d90429", fontWeight: 500 }}>
-                                        Powtarzające się przekroczenia mogą skutkować jeszcze wyższymi rachunkami w przyszłości.
-                                    </span>
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <Card.Title className="text-uppercase small fw-bold mb-3">
-                                    Szczegóły przekroczeń wg stref w maju
-                                </Card.Title>
-                                <Table bordered responsive className="text-center align-middle mb-4">
-                                    <thead className="table-light">
-                                        <tr>
-                                            <th>Strefa</th>
-                                            <th>Moc umowna</th>
-                                            <th>Pmax</th>
-                                            <th>Przekroczenie</th>
-                                            <th>Koszt</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <tr>
-                                            <td>A+T1</td>
-                                            <td>10 kW</td>
-                                            <td>12,2 kW</td>
-                                            <td style={{ color: "#b08900", fontWeight: 600 }}>2,2 kW</td>
-                                            <td style={{ color: "#b08900" }}>88,00 zł</td>
-                                        </tr>
-                                        <tr>
-                                            <td>A+T2</td>
-                                            <td>8 kW</td>
-                                            <td>8,5 kW</td>
-                                            <td style={{ color: "#357951", fontWeight: 600 }}>0,5 kW</td>
-                                            <td style={{ color: "#357951" }}>20,00 zł</td>
-                                        </tr>
-                                        <tr>
-                                            <td>A+T3</td>
-                                            <td>6 kW</td>
-                                            <td>5,9 kW</td>
-                                            <td className="text-muted">–</td>
-                                            <td className="text-muted">–</td>
-                                        </tr>
-                                    </tbody>
-                                    <tfoot>
-                                        <tr>
-                                            <td colSpan={4} className="fw-bold text-end">Suma kosztów:</td>
-                                            <td className="fw-bold" style={{ fontSize: 20, color: "#660032" }}>108,00 zł</td>
-                                        </tr>
-                                    </tfoot>
-                                </Table>
-                                <Button
-                                    variant="outline-secondary"
-                                    className="align-self-center"
-                                    onClick={() => setDetails(false)}
-                                >
-                                    <Fa.FaArrowLeft className="me-2" /> Wróć do podsumowania
-                                </Button>
-                            </>
-                        )}
-                    </Card>
-                </Col>
-            </Row>
-            <Row className="mb-4">
-                <Col>
-                    <Card className="p-3">
-                        <Card.Title className="text-uppercase small fw-bold mb-3">
-                            Rozkład mocy w ciągu dnia
-                        </Card.Title>
-                        <div className="table-responsive">
-                            <table className="table table-bordered table-sm text-center align-middle mb-0">
-                                <thead className="table-light">
-                                <tr>
-                                    <th>Godz.</th>
-                                    {["Pn", "Wt", "Śr", "Czw", "Pt", "Sob", "Ndz"].map((d, i) => (
-                                        <th key={i}>{d}</th>
-                                    ))}
-                                </tr>
-                                </thead>
-                                <tbody>
-                                {Array.from({ length: 24 }, (_, hour) => (
-                                    <tr key={hour}>
-                                        <td>{`${hour}:00`}</td>
-                                        {Array.from({ length: 7 }, (_, d) => {
-                                            const v = Math.random() * 10 + 1;
-                                            const transparency = v / 10;
-                                            const bg = `rgba(102, 0, 50, ${transparency})`;
-                                            const isDark = theme === "dark";
-
-                                            const color = isDark
-                                                ? "#fff"
-                                                : (v > 7 ? "#fff" : "#000");
-
-                                            return (
-                                                <td key={d} style={{ backgroundColor: bg, color }}>
-                                                    {v.toFixed(1)}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
-                                ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Card>
-                </Col>
-            </Row>
-
+                    <Row className="g-3">
+                        <Col xl={9}><Card className="h-100"><Card.Body>
+                            <div className="text-uppercase small fw-bold mb-2">Profil mocy szczytowej</div>
+                            <div style={{ height: 520 }}><Line data={chartData} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} /></div>
+                        </Card.Body></Card></Col>
+                        <Col xl={3}><Card className="h-100"><Card.Body>
+                            <div className="text-uppercase small fw-bold mb-2">Maksima dzienne</div>
+                            <Table responsive hover size="sm" className="mb-0">
+                                <thead><tr><th>Data</th><th>Pmax [kW]</th></tr></thead>
+                                <tbody>{dailyMaximums.map(([day, value]) => (
+                                    <tr key={day}><td>{dayFormatter.format(new Date(`${day}T12:00:00Z`))}</td><td>{numberFormatter.format(value)}</td></tr>
+                                ))}</tbody>
+                            </Table>
+                        </Card.Body></Card></Col>
+                    </Row>
+                </>
+            )}
         </Container>
-    );
+    )
 }
