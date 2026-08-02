@@ -3,10 +3,23 @@ import { Link, useLocation } from 'wouter'
 import { Alert, Container, Nav, Navbar, Image, NavDropdown } from 'react-bootstrap'
 import * as Fa from 'react-icons/fa'
 import { useAuth } from '../../auth'
+import { NotificationsMenu } from './NotificationsMenu'
+
+const navItems = [
+    { href: '/home', icon: Fa.FaHome, label: 'Strona główna' },
+    { href: '/infrastructure/meter/list', icon: Fa.FaBolt, label: 'Liczniki' },
+    { href: '/simulators', icon: Fa.FaCogs, label: 'Symulatory' },
+    { href: '/charts', icon: Fa.FaChartBar, label: 'Wykresy' },
+    { href: '/infrastructure/electricityGenerator', icon: Fa.FaSolarPanel, label: 'Wytwórca' },
+    { href: '/infrastructure/pmax', icon: Fa.FaArrowUp, label: 'Moc szczytowa' },
+    { href: '/readings/meterReadingsPage', icon: Fa.FaTachometerAlt, label: 'Wskazania' },
+    { href: '/map', icon: Fa.FaMap, label: 'Mapa' },
+]
 
 export function Layout({ children }: { children: ReactNode }) {
     const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark')
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebarCollapsed') === 'true')
     const { logout, user } = useAuth()
     const [location, navigate] = useLocation()
 
@@ -14,6 +27,10 @@ export function Layout({ children }: { children: ReactNode }) {
         document.body.dataset.theme = dark ? 'dark' : 'light'
         localStorage.setItem('theme', dark ? 'dark' : 'light')
     }, [dark])
+
+    useEffect(() => {
+        localStorage.setItem('sidebarCollapsed', String(collapsed))
+    }, [collapsed])
 
     useEffect(() => {
         setSidebarOpen(false)
@@ -25,7 +42,7 @@ export function Layout({ children }: { children: ReactNode }) {
     }
 
     return (
-        <div className="app-shell min-vh-100">
+        <div className={`app-shell min-vh-100${collapsed ? ' is-collapsed' : ''}`}>
             <aside id="main-sidebar" className={`sidebar d-flex flex-column p-3 ${sidebarOpen ? 'is-open' : ''}`}>
                 <button
                     type="button"
@@ -38,34 +55,20 @@ export function Layout({ children }: { children: ReactNode }) {
 
                 <div className="text-center mb-4">
                     <Image src="/electricMeter.png" alt="Logo" className="logo mb-2" />
-                    <h4 className="text-white">Twój licznik</h4>
+                    <h4 className="text-white brand-title">Twój licznik</h4>
                 </div>
 
                 <Nav className="flex-column">
-                    <Link href="/home" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
-                        <Fa.FaHome className="me-2" /> Strona główna
-                    </Link>
-                    <Link href="/infrastructure/meter/list" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
-                        <Fa.FaBolt className="me-2" /> Liczniki
-                    </Link>
-                    <Link href="/simulators" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
-                        <Fa.FaCogs className="me-2" /> Symulatory
-                    </Link>
-                    <Link href="/charts" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
-                        <Fa.FaChartBar className="me-2" /> Wykresy
-                    </Link>
-                    <Link href="/infrastructure/electricityGenerator" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
-                        <Fa.FaSolarPanel className="me-2" /> Wytwórca
-                    </Link>
-                    <Link href="/infrastructure/pmax" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
-                        <Fa.FaArrowUp className="me-2" /> Moc szczytowa
-                    </Link>
-                    <Link href="/readings/meterReadingsPage" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
-                        <Fa.FaTachometerAlt className="me-2" /> Wskazania
-                    </Link>
-                    <Link href="/map" className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}>
-                        <Fa.FaMap className="me-2" /> Mapa
-                    </Link>
+                    {navItems.map((item) => (
+                        <Link
+                            key={item.href}
+                            href={item.href}
+                            title={collapsed ? item.label : undefined}
+                            className={(active) => `nav-link navbar-item px-3 py-2 mb-2${active ? ' active' : ''}`}
+                        >
+                            <item.icon className="me-2" /> <span className="nav-label">{item.label}</span>
+                        </Link>
+                    ))}
                 </Nav>
             </aside>
 
@@ -92,19 +95,20 @@ export function Layout({ children }: { children: ReactNode }) {
                             >
                                 <Fa.FaBars />
                             </button>
+                            <button
+                                type="button"
+                                className="collapse-toggle"
+                                aria-label={collapsed ? 'Rozwiń menu' : 'Zwiń menu'}
+                                aria-pressed={collapsed}
+                                onClick={() => setCollapsed((current) => !current)}
+                            >
+                                {collapsed ? <Fa.FaAngleDoubleRight /> : <Fa.FaAngleDoubleLeft />}
+                            </button>
                             <span className="mobile-brand">Twój licznik</span>
                         </div>
 
                         <Nav className="d-flex align-items-center flex-row">
-                            <Nav.Link
-                                as="button"
-                                type="button"
-                                className="top-nav-action px-3 py-2"
-                                aria-label="Powiadomienia"
-                            >
-                                <Fa.FaBell className="me-2" />
-                                <span className="top-nav-label">Powiadomienia</span>
-                            </Nav.Link>
+                            <NotificationsMenu />
                             <Nav.Link
                                 as="button"
                                 type="button"
@@ -118,7 +122,7 @@ export function Layout({ children }: { children: ReactNode }) {
                             <Link
                                 href="/help"
                                 className="top-nav-action px-3 py-2"
-                                aria-label="FAQ"
+                                aria-label="Pomoc i FAQ"
                             >
                                 <Fa.FaQuestionCircle className="me-2" />
                                 <span className="top-nav-label">FAQ</span>

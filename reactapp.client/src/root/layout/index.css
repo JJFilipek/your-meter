@@ -439,3 +439,115 @@ footer small {
         animation-iteration-count: 1 !important;
     }
 }
+
+/* Collapsible sidebar (desktop) */
+.sidebar {
+    transition: flex-basis 0.2s ease, width 0.2s ease;
+}
+
+.app-content {
+    transition: width 0.2s ease;
+}
+
+.collapse-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: var(--brand);
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.collapse-toggle:hover {
+    background: rgba(var(--bs-primary-rgb), 0.08);
+}
+
+.app-shell.is-collapsed .sidebar {
+    flex-basis: 76px;
+    width: 76px;
+}
+
+.app-shell.is-collapsed .app-content {
+    width: calc(100% - 76px);
+}
+
+.app-shell.is-collapsed .nav-label,
+.app-shell.is-collapsed .brand-title {
+    display: none;
+}
+
+.app-shell.is-collapsed .logo {
+    width: 40px;
+}
+
+.app-shell.is-collapsed .sidebar .nav-link {
+    text-align: center;
+    padding-inline: 0.25rem;
+}
+
+.app-shell.is-collapsed .sidebar .nav-link svg {
+    margin-right: 0 !important;
+    font-size: 1.2rem;
+}
+
+/* Notifications menu */
+.notif-toggle {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.notif-badge {
+    position: absolute;
+    top: -6px;
+    right: -10px;
+    font-size: 0.62rem;
+}
+
+.notif-menu .dropdown-menu {
+    width: 320px;
+    max-height: 420px;
+    overflow-y: auto;
+    padding-top: 0;
+}
+
+.notif-menu .notif-header {
+    position: sticky;
+    top: 0;
+    background: var(--card-bg, #fff);
+    z-index: 1;
+}
+
+.notif-item .text-wrap {
+    white-space: normal;
+}
+
+/* On small screens the sidebar is off-canvas, so ignore the desktop collapse. */
+@media (max-width: 991.98px) {
+    .collapse-toggle {
+        display: none;
+    }
+
+    .app-shell.is-collapsed .sidebar {
+        width: 250px;
+        flex-basis: 250px;
+    }
+
+    .app-shell.is-collapsed .nav-label,
+    .app-shell.is-collapsed .brand-title {
+        display: revert;
+    }
+
+    .app-shell.is-collapsed .logo {
+        width: 120px;
+    }
+
+    .app-shell.is-collapsed .app-content {
+        width: 100%;
+    }
+}

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'wouter'
 import { Alert, Breadcrumb, Button, Card, Col, Container, Form, Row, Spinner, Table } from 'react-bootstrap'
 import * as Fa from 'react-icons/fa'
-import { getMeterReadings, getMeters, type MeterReading } from '../api/meters'
-import type { Meter } from '../types/infrastructure/meter'
+import { getMeterReadings, type MeterReading } from '../api/meters'
+import { useMeterSelection } from '../root/app-context'
 import { ColumnSelectorModal } from './ColumnSelectorModal'
 import { ColumnViewBar } from './ColumnViewBar'
 import './ColumnViewBar.css'
@@ -52,10 +52,8 @@ const renderValue = (reading: MeterReading, column: ReadingColumnKey) => {
 export function MeterReadingsPage() {
     const [searchParams] = useSearchParams()
     const requestedMeterId = searchParams.get('meterId')
-    const [meters, setMeters] = useState<Meter[]>([])
-    const [selectedMeter, setSelectedMeter] = useState('')
+    const { meters, selectedMeterId: selectedMeter, setSelectedMeterId: setSelectedMeter, isLoading: isLoadingMeters } = useMeterSelection()
     const [readings, setReadings] = useState<MeterReading[]>([])
-    const [isLoadingMeters, setIsLoadingMeters] = useState(true)
     const [isLoadingReadings, setIsLoadingReadings] = useState(false)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [dateFrom, setDateFrom] = useState(initialDateFrom)
@@ -72,24 +70,12 @@ export function MeterReadingsPage() {
         Wszystkie: readingColumns.map(column => column.key),
     })
 
+    // Deep-link: ?meterId= adopts that meter into the shared selection when valid.
     useEffect(() => {
-        const controller = new AbortController()
-        getMeters(controller.signal)
-            .then(items => {
-                setMeters(items)
-                const requestedExists = items.some(item => item.id === requestedMeterId)
-                setSelectedMeter(requestedExists ? requestedMeterId! : items[0]?.id ?? '')
-            })
-            .catch(error => {
-                if (error instanceof DOMException && error.name === 'AbortError') return
-                setLoadError(error instanceof Error ? error.message : 'Nie udało się pobrać liczników.')
-            })
-            .finally(() => {
-                if (!controller.signal.aborted) setIsLoadingMeters(false)
-            })
-
-        return () => controller.abort()
-    }, [requestedMeterId])
+        if (requestedMeterId && meters.some(item => item.id === requestedMeterId)) {
+            setSelectedMeter(requestedMeterId)
+        }
+    }, [requestedMeterId, meters, setSelectedMeter])
 
     useEffect(() => {
         if (!selectedMeter) {

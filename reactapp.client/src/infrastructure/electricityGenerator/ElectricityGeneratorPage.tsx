@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Breadcrumb, Button, Card, Col, Container, Form, Row, Spinner, Table } from 'react-bootstrap'
+import { Alert, Breadcrumb, Button, Card, Col, Container, Form, Row, Table } from 'react-bootstrap'
 import { Bar, Doughnut, Line } from 'react-chartjs-2'
 import {
     ArcElement,
@@ -14,8 +14,10 @@ import {
     Tooltip,
 } from 'chart.js'
 import * as Fa from 'react-icons/fa'
-import { getMeterAnalytics, getMeters, type MeterAnalytics } from '../../api/meters'
-import type { Meter } from '../../types/infrastructure/meter'
+import { getMeterAnalytics, type MeterAnalytics } from '../../api/meters'
+import { useMeterSelection } from '../../root/app-context'
+import { AnalyticsSkeleton } from '../../root/layout/AnalyticsSkeleton'
+import { plTooltip } from '../../root/chart-format'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, ArcElement, PointElement, Filler, Tooltip, Legend)
 
@@ -50,27 +52,11 @@ const downloadCsv = (analytics: MeterAnalytics) => {
 }
 
 export function ElectricityGeneratorPage() {
-    const [meters, setMeters] = useState<Meter[]>([])
-    const [selectedMeter, setSelectedMeter] = useState('')
+    const { meters, selectedMeterId: selectedMeter, setSelectedMeterId: setSelectedMeter } = useMeterSelection()
     const [daily, setDaily] = useState<MeterAnalytics | null>(null)
     const [monthly, setMonthly] = useState<MeterAnalytics | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-
-    useEffect(() => {
-        const controller = new AbortController()
-        void getMeters(controller.signal)
-            .then((items) => {
-                setMeters(items)
-                const producer = [...items].sort((left, right) => (right.latestActiveExportKwh ?? 0) - (left.latestActiveExportKwh ?? 0))[0]
-                setSelectedMeter((current) => current || producer?.id || '')
-            })
-            .catch((loadError) => {
-                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
-                setError(loadError instanceof Error ? loadError.message : 'Nie udało się pobrać liczników.')
-            })
-        return () => controller.abort()
-    }, [])
 
     useEffect(() => {
         if (!selectedMeter) {
@@ -192,7 +178,7 @@ export function ElectricityGeneratorPage() {
 
             {error && <Alert variant="danger">{error}</Alert>}
             {isLoading ? (
-                <div className="text-center py-5"><Spinner animation="border" /><div className="mt-2">Agregowanie pomiarów...</div></div>
+                <AnalyticsSkeleton />
             ) : !daily || !derived ? (
                 <Alert variant="info">Brak danych pomiarowych w wybranym okresie.</Alert>
             ) : (
@@ -309,7 +295,7 @@ export function ElectricityGeneratorPage() {
                             <Card className="h-100"><Card.Body>
                                 <div className="text-uppercase small fw-bold mb-2">Wykres produkcji</div>
                                 <div style={{ height: 480, minHeight: 150 }}>
-                                    <Bar data={productionChart} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }} />
+                                    <Bar data={productionChart} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, tooltip: plTooltip }, scales: { x: { grid: { display: false } }, y: { beginAtZero: true } } }} />
                                 </div>
                             </Card.Body></Card>
                         </Col>

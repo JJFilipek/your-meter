@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Breadcrumb, Button, Card, Col, Container, Form, Row, Spinner, Table } from 'react-bootstrap'
+import { Alert, Breadcrumb, Button, Card, Col, Container, Form, Row, Table } from 'react-bootstrap'
 import { Line } from 'react-chartjs-2'
 import {
     CategoryScale,
@@ -12,8 +12,10 @@ import {
     Tooltip,
 } from 'chart.js'
 import * as Fa from 'react-icons/fa'
-import { getMeterAnalytics, getMeterInsights, getMeters, type MeterAnalytics, type MeterInsights } from '../../api/meters'
-import type { Meter } from '../../types/infrastructure/meter'
+import { getMeterAnalytics, getMeterInsights, type MeterAnalytics, type MeterInsights } from '../../api/meters'
+import { useMeterSelection } from '../../root/app-context'
+import { AnalyticsSkeleton } from '../../root/layout/AnalyticsSkeleton'
+import { plTooltip } from '../../root/chart-format'
 
 ChartJS.register(CategoryScale, LinearScale, LineElement, PointElement, Filler, Tooltip, Legend)
 
@@ -33,8 +35,7 @@ const powerColor = (value: number, contracted: number, connection: number) => {
 }
 
 export function PmaxPage() {
-    const [meters, setMeters] = useState<Meter[]>([])
-    const [selectedMeter, setSelectedMeter] = useState('')
+    const { meters, selectedMeterId: selectedMeter, setSelectedMeterId: setSelectedMeter } = useMeterSelection()
     const [register, setRegister] = useState<'import' | 'export'>('import')
     const [dateFrom, setDateFrom] = useState(dateInput(new Date(Date.now() - 7 * 864e5)))
     const [dateTo, setDateTo] = useState(dateInput(new Date()))
@@ -51,20 +52,6 @@ export function PmaxPage() {
         const observer = new MutationObserver(() => setTheme(document.body.dataset.theme))
         observer.observe(document.body, { attributes: true, attributeFilter: ['data-theme'] })
         return () => observer.disconnect()
-    }, [])
-
-    useEffect(() => {
-        const controller = new AbortController()
-        void getMeters(controller.signal)
-            .then((items) => {
-                setMeters(items)
-                setSelectedMeter((current) => current || items[0]?.id || '')
-            })
-            .catch((loadError) => {
-                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
-                setError(loadError instanceof Error ? loadError.message : 'Nie udało się pobrać liczników.')
-            })
-        return () => controller.abort()
     }, [])
 
     useEffect(() => {
@@ -166,7 +153,7 @@ export function PmaxPage() {
 
             {error && <Alert variant="danger">{error}</Alert>}
             {isLoading ? (
-                <div className="text-center py-5"><Spinner animation="border" /><div className="mt-2">Analiza profilu mocy...</div></div>
+                <AnalyticsSkeleton />
             ) : !insights || !analytics || analytics.buckets.length === 0 ? (
                 <Alert variant="info">Brak pomiarów w wybranym okresie.</Alert>
             ) : (
@@ -220,7 +207,7 @@ export function PmaxPage() {
                                     </div>
                                 )}
                                 <Card.Title className="text-uppercase small fw-bold mb-2">Moc chwilowa względem limitów</Card.Title>
-                                <div style={{ height: 460 }}><Line data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true } } }} /></div>
+                                <div style={{ height: 460 }}><Line data={chartData} options={{ responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' }, tooltip: plTooltip }, scales: { y: { beginAtZero: true } } }} /></div>
                                 <div className="mt-2 mb-0 text-end text-muted">Moc szczytowa (Pmax) we wskazanym okresie: <b>{kw.format(pmaxInPeriod)} kW</b></div>
                             </Card>
                         </Col>

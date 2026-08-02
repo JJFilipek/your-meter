@@ -8,7 +8,9 @@ import "./root/layout/dark-theme.css";
 
 import { Layout } from "./root/layout/Layout";
 import { LoginPage } from "./pages/LoginPage";
+import { HelpPage } from "./pages/HelpPage";
 import { AuthProvider, useAuth } from "./auth";
+import { AppStateProvider } from "./root/app-context";
 import HomePage from "./home/HomePage";
 import MapPage from "./map/MapPage";
 import { Meters } from "./infrastructure/meters/MeterListPage";
@@ -53,9 +55,11 @@ const PageLoader = () => (
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <React.StrictMode>
         <AuthProvider>
+            <AppStateProvider>
             <Switch>
                 <Route path="/login"><LoginPage /></Route>
                 <Route path="/home"><RequireAuth><Layout><HomePage /></Layout></RequireAuth></Route>
+                <Route path="/help"><RequireAuth><Layout><HelpPage /></Layout></RequireAuth></Route>
                 <Route path="/infrastructure/meter/list"><RequireAuth><Layout><Meters /></Layout></RequireAuth></Route>
                 <Route path="/map"><RequireAuth><Layout><MapPage /></Layout></RequireAuth></Route>
                 <Route path="/simulators"><RequireAuth><Layout><MeterLabPage /></Layout></RequireAuth></Route>
@@ -66,6 +70,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 <Route path="/account"><RequireAuth><Layout><AccountSettingsPage /></Layout></RequireAuth></Route>
                 <Route><Redirect to="/home" replace /></Route>
             </Switch>
+            </AppStateProvider>
         </AuthProvider>
     </React.StrictMode>
 );

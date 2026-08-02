@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Alert, Breadcrumb, Button, ButtonGroup, Card, Col, Container, Form, Row, Spinner } from 'react-bootstrap'
+import { Alert, Breadcrumb, Button, ButtonGroup, Card, Col, Container, Form, Row } from 'react-bootstrap'
 import { Bar, Line } from 'react-chartjs-2'
 import {
     BarElement,
@@ -15,13 +15,14 @@ import {
 import * as Fa from 'react-icons/fa'
 import {
     getMeterAnalytics,
-    getMeters,
     getTariffSimulation,
     type MeterAnalytics,
     type TariffCode,
     type TariffSimulation,
 } from '../api/meters'
-import type { Meter } from '../types/infrastructure/meter'
+import { useMeterSelection } from '../root/app-context'
+import { AnalyticsSkeleton } from '../root/layout/AnalyticsSkeleton'
+import { plTooltip } from '../root/chart-format'
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler, Tooltip, Legend)
 
@@ -66,8 +67,7 @@ const standardDeviation = (values: number[]) => {
 }
 
 export function ChartsPage() {
-    const [meters, setMeters] = useState<Meter[]>([])
-    const [selectedMeter, setSelectedMeter] = useState('')
+    const { meters, selectedMeterId: selectedMeter, setSelectedMeterId: setSelectedMeter } = useMeterSelection()
     const [range, setRange] = useState<RangeKey>('year')
     const [useYearRange, setUseYearRange] = useState(false)
     const [yearFrom, setYearFrom] = useState(String(currentYear - 1))
@@ -80,20 +80,6 @@ export function ChartsPage() {
     const [ownTariffCost, setOwnTariffCost] = useState<TariffSimulation | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
-
-    useEffect(() => {
-        const controller = new AbortController()
-        void getMeters(controller.signal)
-            .then((items) => {
-                setMeters(items)
-                setSelectedMeter((current) => current || items[0]?.id || '')
-            })
-            .catch((loadError) => {
-                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
-                setError(loadError instanceof Error ? loadError.message : 'Nie udało się pobrać liczników.')
-            })
-        return () => controller.abort()
-    }, [])
 
     const { fromIso, toIso, bucket } = useMemo(() => {
         if (useYearRange) {
@@ -163,9 +149,9 @@ export function ChartsPage() {
 
     const { chartNode, chartCaption, seriesForStats, statsUnit } = useMemo(() => {
         const buckets = analytics?.buckets ?? []
-        const barOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
-        const plainBar = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const } }, scales: { y: { beginAtZero: true } } }
-        const lineOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const } }, scales: { y: { beginAtZero: true } } }
+        const barOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const }, tooltip: plTooltip }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+        const plainBar = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const }, tooltip: plTooltip }, scales: { y: { beginAtZero: true } } }
+        const lineOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const }, tooltip: plTooltip }, scales: { y: { beginAtZero: true } } }
 
         switch (selectedChart) {
             case 'Wykres generacji': {
@@ -339,7 +325,7 @@ export function ChartsPage() {
 
             {error && <Alert variant="danger">{error}</Alert>}
             {isLoading ? (
-                <div className="text-center py-5"><Spinner animation="border" /><div className="mt-2">Pobieranie pomiarów...</div></div>
+                <AnalyticsSkeleton />
             ) : !analytics || analytics.buckets.length === 0 ? (
                 <Alert variant="info">Brak pomiarów w wybranym okresie.</Alert>
             ) : (
