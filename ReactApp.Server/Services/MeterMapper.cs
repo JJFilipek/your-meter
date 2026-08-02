@@ -21,5 +21,6 @@ public static class MeterMapper
             meter.LastSeenAtUtc,
             meter.LatestActiveImportKwh,
             meter.LatestActiveExportKwh,
-            meter.LatestActivePowerKw);
+            meter.LatestActivePowerKw,
+            meter.AlertThresholdKw);
 }

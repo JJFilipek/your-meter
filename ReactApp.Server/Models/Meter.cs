@@ -17,6 +17,9 @@ public sealed class Meter
     public bool IsEnabled { get; set; } = true;
     public bool IsSimulated { get; set; }
     public double? SimulationBasePowerKw { get; set; }
+
+    /// <summary>Optional user-defined power alert threshold in kW. Falls back to 90% of contracted power when null.</summary>
+    public double? AlertThresholdKw { get; set; }
     public DateTime? LastSeenAtUtc { get; set; }
     public ReadingQuality? LastReadingQuality { get; set; }
     public double? LatestActiveImportKwh { get; set; }

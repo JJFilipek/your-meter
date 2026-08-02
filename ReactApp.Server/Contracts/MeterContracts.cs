@@ -20,7 +20,14 @@ public sealed record MeterDto(
     DateTime? LastSeenAtUtc,
     double? LatestActiveImportKwh,
     double? LatestActiveExportKwh,
-    double? LatestActivePowerKw);
+    double? LatestActivePowerKw,
+    double? AlertThresholdKw);
+
+public sealed class SetAlertThresholdRequest
+{
+    [Range(0, 100000)]
+    public double? ThresholdKw { get; init; }
+}
 
 public sealed class MeterLocationRequest
 {

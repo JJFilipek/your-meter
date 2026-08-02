@@ -521,7 +521,9 @@ public sealed class MetersController(
         var basePowerKw = pricing.ResolveBasePowerKw(meter);
         var contractedPowerKw = EnergyPricingService.ContractedPowerKw(basePowerKw);
         var connectionPowerKw = EnergyPricingService.ConnectionPowerKw(basePowerKw);
-        var alertThresholdKw = Math.Round(contractedPowerKw * 0.9, 4);
+        var alertThresholdKw = meter.AlertThresholdKw is > 0
+            ? Math.Round(meter.AlertThresholdKw.Value, 4)
+            : Math.Round(contractedPowerKw * 0.9, 4);
 
         double RegisterPower(MeterReading reading) => normalizedRegister == "export"
             ? Math.Max(0, -reading.ActivePowerKw)
@@ -686,6 +688,26 @@ public sealed class MetersController(
             trimmedAlerts,
             recommendations,
             exceedanceCost));
+    }
+
+    [HttpPut("{id:guid}/alert-threshold")]
+    [ProducesResponseType<MeterDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MeterDto>> SetAlertThreshold(
+        Guid id,
+        SetAlertThresholdRequest request,
+        CancellationToken cancellationToken)
+    {
+        var meter = await dbContext.Meters.SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (meter is null)
+        {
+            return NotFound();
+        }
+
+        meter.AlertThresholdKw = request.ThresholdKw is > 0 ? request.ThresholdKw : null;
+        meter.UpdatedAtUtc = DateTime.UtcNow;
+        await dbContext.SaveChangesAsync(cancellationToken);
+        return Ok(MeterMapper.ToDto(meter, DateTime.UtcNow));
     }
 
     private sealed record ExceedanceEvent(DateTime TimestampUtc, double PeakPowerKw);
