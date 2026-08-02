@@ -333,7 +333,8 @@ public sealed class SimulatorsController(
                 timestamp,
                 interval,
                 previous.ActiveImportKwh,
-                previous.ActiveExportKwh);
+                previous.ActiveExportKwh,
+                previous.ActiveGenerationKwh);
             readings.Add(previous);
             timestamp = timestamp.Add(interval);
         }
@@ -345,7 +346,8 @@ public sealed class SimulatorsController(
                 endAtUtc,
                 endAtUtc - previous.TimestampUtc,
                 previous.ActiveImportKwh,
-                previous.ActiveExportKwh));
+                previous.ActiveExportKwh,
+                previous.ActiveGenerationKwh));
         }
 
         return readings;
@@ -357,7 +359,9 @@ public sealed class SimulatorsController(
         meter.LastReadingQuality = reading.Quality;
         meter.LatestActiveImportKwh = reading.ActiveImportKwh;
         meter.LatestActiveExportKwh = reading.ActiveExportKwh;
+        meter.LatestActiveGenerationKwh = reading.ActiveGenerationKwh;
         meter.LatestActivePowerKw = reading.ActivePowerKw;
+        meter.LatestGenerationPowerKw = reading.GenerationPowerKw;
         meter.UpdatedAtUtc = DateTime.UtcNow;
     }
 

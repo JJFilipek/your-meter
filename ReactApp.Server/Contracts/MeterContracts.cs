@@ -74,7 +74,14 @@ public sealed class ReadingSampleRequest
     [Range(0, double.MaxValue)]
     public double ActiveExportKwh { get; init; }
 
+    [Range(0, double.MaxValue)]
+    public double ActiveGenerationKwh { get; init; }
+
     public double ActivePowerKw { get; init; }
+
+    [Range(0, double.MaxValue)]
+    public double GenerationPowerKw { get; init; }
+
     public double? ReactivePowerKvar { get; init; }
 
     [Range(0, 1000)]

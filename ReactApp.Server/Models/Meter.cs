@@ -21,7 +21,9 @@ public sealed class Meter
     public ReadingQuality? LastReadingQuality { get; set; }
     public double? LatestActiveImportKwh { get; set; }
     public double? LatestActiveExportKwh { get; set; }
+    public double? LatestActiveGenerationKwh { get; set; }
     public double? LatestActivePowerKw { get; set; }
+    public double? LatestGenerationPowerKw { get; set; }
     public DateTime CreatedAtUtc { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAtUtc { get; set; } = DateTime.UtcNow;
     public ICollection<MeterReading> Readings { get; set; } = [];

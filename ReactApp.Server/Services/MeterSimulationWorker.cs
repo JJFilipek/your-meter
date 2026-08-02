@@ -147,6 +147,10 @@ public sealed class MeterSimulationWorker(
             {
                 await BackfillMeterAsync(dbContext, meter, definition, cancellationToken);
             }
+            else if (await NeedsGenerationBackfillAsync(dbContext, meter, definition, cancellationToken))
+            {
+                await RegenerateHistoryAsync(dbContext, meter, definition, cancellationToken);
+            }
             else
             {
                 await ExtendBackfillAsync(
@@ -157,6 +161,55 @@ public sealed class MeterSimulationWorker(
                     cancellationToken);
             }
         }
+    }
+
+    /// <summary>
+    /// Detects prosumer meters whose history predates the on-site generation register and
+    /// therefore reports no production. Such histories are rebuilt so every analytics view
+    /// has generation data across the whole backfill window.
+    /// </summary>
+    private static async Task<bool> NeedsGenerationBackfillAsync(
+        AppDbContext dbContext,
+        Meter meter,
+        SimulatedMeterDefinition definition,
+        CancellationToken cancellationToken)
+    {
+        if (definition.Kind is not SimulationKind.Photovoltaic)
+        {
+            return false;
+        }
+
+        var hasExport = await dbContext.MeterReadings
+            .AnyAsync(item => item.MeterId == meter.Id && item.ActiveExportKwh > 0, cancellationToken);
+        if (!hasExport)
+        {
+            return false;
+        }
+
+        var hasGeneration = await dbContext.MeterReadings
+            .AnyAsync(item => item.MeterId == meter.Id && item.ActiveGenerationKwh > 0, cancellationToken);
+        return !hasGeneration;
+    }
+
+    private async Task RegenerateHistoryAsync(
+        AppDbContext dbContext,
+        Meter meter,
+        SimulatedMeterDefinition definition,
+        CancellationToken cancellationToken)
+    {
+        await dbContext.MeterReadings
+            .Where(item => item.MeterId == meter.Id)
+            .ExecuteDeleteAsync(cancellationToken);
+        meter.LatestActiveImportKwh = null;
+        meter.LatestActiveExportKwh = null;
+        meter.LatestActiveGenerationKwh = null;
+        meter.LatestActivePowerKw = null;
+        meter.LatestGenerationPowerKw = null;
+        await BackfillMeterAsync(dbContext, meter, definition, cancellationToken);
+
+        logger.LogInformation(
+            "Odtworzono historię {SerialNumber} wraz z rejestrem generacji.",
+            meter.SerialNumber);
     }
 
     private async Task ExtendBackfillAsync(
@@ -205,7 +258,8 @@ public sealed class MeterSimulationWorker(
                 timestamp,
                 interval,
                 previous.ActiveImportKwh,
-                previous.ActiveExportKwh);
+                previous.ActiveExportKwh,
+                previous.ActiveGenerationKwh);
             prefix.Add(previous);
             timestamp = timestamp.Add(interval);
         }
@@ -267,6 +321,7 @@ public sealed class MeterSimulationWorker(
         var timestamp = end.AddDays(-backfillDays);
         var importKwh = 1000d + Array.IndexOf(Definitions, definition) * 750d;
         var exportKwh = definition.Kind is SimulationKind.Photovoltaic ? 150d : 0d;
+        var generationKwh = definition.Kind is SimulationKind.Photovoltaic ? 220d : 0d;
         var readings = new List<MeterReading>();
 
         while (timestamp <= end)
@@ -277,9 +332,11 @@ public sealed class MeterSimulationWorker(
                 timestamp,
                 interval,
                 importKwh,
-                exportKwh);
+                exportKwh,
+                generationKwh);
             importKwh = reading.ActiveImportKwh;
             exportKwh = reading.ActiveExportKwh;
+            generationKwh = reading.ActiveGenerationKwh;
             readings.Add(reading);
             timestamp = timestamp.Add(interval);
         }
@@ -347,7 +404,8 @@ public sealed class MeterSimulationWorker(
                 timestamp,
                 elapsed,
                 latest.ActiveImportKwh,
-                latest.ActiveExportKwh);
+                latest.ActiveExportKwh,
+                latest.ActiveGenerationKwh);
             dbContext.MeterReadings.Add(reading);
             ApplyLatestReading(meter, reading);
         }
@@ -361,15 +419,18 @@ public sealed class MeterSimulationWorker(
         DateTime timestampUtc,
         TimeSpan elapsed,
         double previousImportKwh,
-        double previousExportKwh)
+        double previousExportKwh,
+        double previousGenerationKwh)
     {
         var localTimestamp = TimeZoneInfo.ConvertTimeFromUtc(timestampUtc, WarsawTimeZone);
         var variation = ResolveVariation(meter.SerialNumber, timestampUtc);
         var importPowerKw = ResolveImportPower(definition, localTimestamp) * variation;
         var exportPowerKw = ResolveExportPower(definition, localTimestamp) * variation;
+        var generationPowerKw = ResolveGenerationPower(definition, localTimestamp, exportPowerKw);
         var elapsedHours = Math.Min(elapsed.TotalHours, 24);
         var importKwh = previousImportKwh + importPowerKw * elapsedHours;
         var exportKwh = previousExportKwh + exportPowerKw * elapsedHours;
+        var generationKwh = previousGenerationKwh + generationPowerKw * elapsedHours;
         var netPowerKw = importPowerKw - exportPowerKw;
         var voltage = 230 + 2.5 * Math.Sin(timestampUtc.Minute / 60d * Math.PI * 2);
         var current = Math.Abs(netPowerKw) * 1000 / (voltage * Math.Sqrt(3));
@@ -380,7 +441,9 @@ public sealed class MeterSimulationWorker(
             TimestampUtc = timestampUtc,
             ActiveImportKwh = Math.Round(importKwh, 6),
             ActiveExportKwh = Math.Round(exportKwh, 6),
+            ActiveGenerationKwh = Math.Round(generationKwh, 6),
             ActivePowerKw = Math.Round(netPowerKw, 4),
+            GenerationPowerKw = Math.Round(generationPowerKw, 4),
             ReactivePowerKvar = Math.Round(Math.Abs(netPowerKw) * 0.18, 4),
             Voltage = Math.Round(voltage, 2),
             Current = Math.Round(current, 3),
@@ -396,14 +459,36 @@ public sealed class MeterSimulationWorker(
         DateTime timestampUtc,
         TimeSpan elapsed,
         double previousImportKwh,
-        double previousExportKwh) =>
+        double previousExportKwh,
+        double previousGenerationKwh) =>
         CreateReading(
             meter,
             ResolveDefinition(meter),
             timestampUtc,
             elapsed,
             previousImportKwh,
-            previousExportKwh);
+            previousExportKwh,
+            previousGenerationKwh);
+
+    /// <summary>
+    /// On-site generation power for prosumer installations. Total production equals the
+    /// exported portion plus the share self-consumed on site, so autoconsumption can be
+    /// derived as generation minus export.
+    /// </summary>
+    private static double ResolveGenerationPower(
+        SimulatedMeterDefinition definition,
+        DateTime localTimestamp,
+        double exportPowerKw)
+    {
+        if (definition.Kind is not SimulationKind.Photovoltaic || exportPowerKw <= 0)
+        {
+            return 0;
+        }
+
+        var hour = localTimestamp.Hour + localTimestamp.Minute / 60d;
+        var selfConsumedPowerKw = definition.BasePowerKw * 0.5 * BellCurve(hour, 13, 4.5);
+        return exportPowerKw + Math.Max(0, selfConsumedPowerKw);
+    }
 
     private static double ResolveImportPower(
         SimulatedMeterDefinition definition,
@@ -576,7 +661,9 @@ public sealed class MeterSimulationWorker(
         meter.LastReadingQuality = reading.Quality;
         meter.LatestActiveImportKwh = reading.ActiveImportKwh;
         meter.LatestActiveExportKwh = reading.ActiveExportKwh;
+        meter.LatestActiveGenerationKwh = reading.ActiveGenerationKwh;
         meter.LatestActivePowerKw = reading.ActivePowerKw;
+        meter.LatestGenerationPowerKw = reading.GenerationPowerKw;
         meter.UpdatedAtUtc = DateTime.UtcNow;
     }
 

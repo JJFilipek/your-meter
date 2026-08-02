@@ -154,6 +154,11 @@ builder.Services
 builder.Services.AddSingleton<SimulationWriteLock>();
 builder.Services.AddHostedService<MeterSimulationWorker>();
 
+builder.Services
+    .AddOptions<TariffPricingOptions>()
+    .Bind(builder.Configuration.GetSection(TariffPricingOptions.SectionName));
+builder.Services.AddScoped<EnergyPricingService>();
+
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks()
     .AddDbContextCheck<AppDbContext>();

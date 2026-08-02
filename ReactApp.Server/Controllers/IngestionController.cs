@@ -47,7 +47,9 @@ public sealed class IngestionController(AppDbContext dbContext) : ControllerBase
                 TimestampUtc = timestamp,
                 ActiveImportKwh = sample.ActiveImportKwh,
                 ActiveExportKwh = sample.ActiveExportKwh,
+                ActiveGenerationKwh = sample.ActiveGenerationKwh,
                 ActivePowerKw = sample.ActivePowerKw,
+                GenerationPowerKw = sample.GenerationPowerKw,
                 ReactivePowerKvar = sample.ReactivePowerKvar,
                 Voltage = sample.Voltage,
                 Current = sample.Current,
@@ -133,7 +135,9 @@ public sealed class IngestionController(AppDbContext dbContext) : ControllerBase
                 TimestampUtc = sample.TimestampUtc,
                 ActiveImportKwh = sample.ActiveImportKwh,
                 ActiveExportKwh = sample.ActiveExportKwh,
+                ActiveGenerationKwh = sample.ActiveGenerationKwh,
                 ActivePowerKw = sample.ActivePowerKw,
+                GenerationPowerKw = sample.GenerationPowerKw,
                 ReactivePowerKvar = sample.ReactivePowerKvar,
                 Voltage = sample.Voltage,
                 Current = sample.Current,
@@ -150,7 +154,9 @@ public sealed class IngestionController(AppDbContext dbContext) : ControllerBase
             meter.LastReadingQuality = latest.Quality;
             meter.LatestActiveImportKwh = latest.ActiveImportKwh;
             meter.LatestActiveExportKwh = latest.ActiveExportKwh;
+            meter.LatestActiveGenerationKwh = latest.ActiveGenerationKwh;
             meter.LatestActivePowerKw = latest.ActivePowerKw;
+            meter.LatestGenerationPowerKw = latest.GenerationPowerKw;
             meter.UpdatedAtUtc = DateTime.UtcNow;
         }
 
