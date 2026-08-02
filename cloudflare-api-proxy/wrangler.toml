@@ -1,0 +1,8 @@
+name = "your-meter-api-proxy"
+main = "src/index.js"
+compatibility_date = "2026-08-02"
+
+routes = [
+  { pattern = "your-meter.jfilipek.com/api/*", zone_name = "jfilipek.com" },
+  { pattern = "licznik.jfilipek.com/api/*", zone_name = "jfilipek.com" }
+]
