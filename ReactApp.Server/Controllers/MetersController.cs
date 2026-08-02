@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using ReactApp.Server.Configuration;
 using ReactApp.Server.Contracts;
 using ReactApp.Server.Data;
 using ReactApp.Server.Models;
@@ -9,8 +11,13 @@ namespace ReactApp.Server.Controllers;
 
 [ApiController]
 [Route("api/meters")]
-public sealed class MetersController(AppDbContext dbContext, EnergyPricingService pricing) : ControllerBase
+public sealed class MetersController(
+    AppDbContext dbContext,
+    EnergyPricingService pricing,
+    IOptions<NetworkOptions> networkOptions) : ControllerBase
 {
+    private readonly NetworkOptions network = networkOptions.Value;
+
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<MeterDto>>(StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<MeterDto>>> GetAll(
@@ -246,6 +253,7 @@ public sealed class MetersController(AppDbContext dbContext, EnergyPricingServic
             .ToListAsync(cancellationToken);
 
         var exportRate = pricing.ExportCompensationPlnPerKwh;
+        var lineResistanceOhms = Math.Max(0, network.LineResistanceOhms);
         var aggregates = new SortedDictionary<DateTime, AnalyticsAccumulator>();
         MeterReading? preceding = previous;
         foreach (var reading in readings)
@@ -272,6 +280,14 @@ public sealed class MetersController(AppDbContext dbContext, EnergyPricingServic
                 accumulator.GeneratedKwh += generatedKwh;
                 accumulator.SelfConsumedKwh += Math.Max(0, generatedKwh - exportedKwh);
                 accumulator.NetCostPln += importedKwh * zoneRate - exportedKwh * exportRate;
+
+                // Real resistive losses over the interval: E = I²·R·Δt, from the measured current.
+                var current = reading.Current ?? 0;
+                var intervalHours = Math.Min((reading.TimestampUtc - preceding.TimestampUtc).TotalHours, 3);
+                if (current > 0 && intervalHours > 0)
+                {
+                    accumulator.LossKwh += current * current * lineResistanceOhms * intervalHours / 1000d;
+                }
             }
 
             accumulator.AddPower(reading.ActivePowerKw);
@@ -302,12 +318,17 @@ public sealed class MetersController(AppDbContext dbContext, EnergyPricingServic
                 Math.Round(item.Value.MaximumExportPowerKw, 4),
                 Math.Round(item.Value.MaximumGenerationPowerKw, 4),
                 Math.Round(item.Value.NetCostPln, 2),
+                Math.Round(item.Value.LossKwh, 6),
                 item.Value.SampleCount))
             .ToArray();
         var latest = readings.LastOrDefault();
         var basePowerKw = pricing.ResolveBasePowerKw(meter);
         var totalGeneratedKwh = buckets.Sum(x => x.GeneratedKwh);
         var totalSelfConsumedKwh = buckets.Sum(x => x.SelfConsumedKwh);
+        // Only completed periods feed the forecast; the current, still-open bucket would
+        // otherwise drag the fit toward zero.
+        var (generatedForecastKwh, generatedTrendPercent) = ForecastNext(
+            buckets.Where(x => x.EndUtc <= to).Select(x => x.GeneratedKwh).ToArray());
 
         return Ok(new MeterAnalyticsDto(
             meter.Id,
@@ -326,6 +347,9 @@ public sealed class MetersController(AppDbContext dbContext, EnergyPricingServic
             Math.Round(totalSelfConsumedKwh, 6),
             totalGeneratedKwh <= 0 ? 0 : Math.Round(totalSelfConsumedKwh / totalGeneratedKwh, 4),
             Math.Round(buckets.Sum(x => x.NetCostPln), 2),
+            Math.Round(buckets.Sum(x => x.LossKwh), 6),
+            Math.Round(generatedForecastKwh, 4),
+            Math.Round(generatedTrendPercent, 2),
             latest?.ActivePowerKw,
             latest?.GenerationPowerKw,
             latest?.TimestampUtc,
@@ -835,6 +859,45 @@ public sealed class MetersController(AppDbContext dbContext, EnergyPricingServic
             _ => start.AddDays(1)
         };
 
+    /// <summary>
+    /// Predicts the next bucket value with an ordinary least-squares fit over the most recent
+    /// history and reports the trend as the per-step slope relative to the mean. Real data in,
+    /// real projection out – no fixed factors.
+    /// </summary>
+    private static (double Next, double TrendPercent) ForecastNext(IReadOnlyList<double> values)
+    {
+        var count = values.Count;
+        if (count == 0)
+        {
+            return (0, 0);
+        }
+
+        if (count == 1)
+        {
+            return (Math.Max(0, values[0]), 0);
+        }
+
+        var window = Math.Min(14, count);
+        var series = values.Skip(count - window).ToArray();
+        var length = series.Length;
+        double sumX = 0, sumY = 0, sumXx = 0, sumXy = 0;
+        for (var index = 0; index < length; index++)
+        {
+            sumX += index;
+            sumY += series[index];
+            sumXx += index * index;
+            sumXy += index * series[index];
+        }
+
+        var denominator = length * sumXx - sumX * sumX;
+        var slope = denominator == 0 ? 0 : (length * sumXy - sumX * sumY) / denominator;
+        var intercept = (sumY - slope * sumX) / length;
+        var next = Math.Max(0, intercept + slope * length);
+        var average = sumY / length;
+        var trendPercent = average > 0 ? slope / average * 100 : 0;
+        return (next, trendPercent);
+    }
+
     private sealed class AnalyticsAccumulator
     {
         private double powerSum;
@@ -845,6 +908,7 @@ public sealed class MetersController(AppDbContext dbContext, EnergyPricingServic
         public double GeneratedKwh { get; set; }
         public double SelfConsumedKwh { get; set; }
         public double NetCostPln { get; set; }
+        public double LossKwh { get; set; }
         public double MaximumImportPowerKw { get; private set; }
         public double MaximumExportPowerKw { get; private set; }
         public double MaximumGenerationPowerKw { get; private set; }

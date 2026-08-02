@@ -128,6 +128,7 @@ public sealed record MeterAnalyticsBucketDto(
     double MaximumExportPowerKw,
     double MaximumGenerationPowerKw,
     double NetCostPln,
+    double LossKwh,
     int SampleCount);
 
 public sealed record MeterAnalyticsDto(
@@ -147,6 +148,9 @@ public sealed record MeterAnalyticsDto(
     double SelfConsumedKwh,
     double SelfConsumptionRatio,
     double NetCostPln,
+    double LossKwh,
+    double GeneratedForecastKwh,
+    double GeneratedTrendPercent,
     double? LatestPowerKw,
     double? LatestGenerationPowerKw,
     DateTime? LatestReadingAtUtc,

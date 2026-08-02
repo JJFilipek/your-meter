@@ -63,6 +63,7 @@ export type AnalyticsBucket = {
     maximumExportPowerKw: number
     maximumGenerationPowerKw: number
     netCostPln: number
+    lossKwh: number
     sampleCount: number
 }
 
@@ -83,6 +84,9 @@ export type MeterAnalytics = {
     selfConsumedKwh: number
     selfConsumptionRatio: number
     netCostPln: number
+    lossKwh: number
+    generatedForecastKwh: number
+    generatedTrendPercent: number
     latestPowerKw: number | null
     latestGenerationPowerKw: number | null
     latestReadingAtUtc: string | null

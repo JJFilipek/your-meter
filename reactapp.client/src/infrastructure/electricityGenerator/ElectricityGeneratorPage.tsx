@@ -35,8 +35,6 @@ const miniOptions = {
     maintainAspectRatio: false,
 }
 
-const sum = (values: number[]) => values.reduce((total, value) => total + value, 0)
-
 const downloadCsv = (analytics: MeterAnalytics) => {
     const rows = [
         ['okres_start_utc', 'wytworzono_kwh', 'oddano_kwh', 'autokonsumpcja_kwh'],
@@ -110,12 +108,9 @@ export function ElectricityGeneratorPage() {
         const exportedDaily = buckets.map((bucket) => bucket.exportedKwh)
         const todayGenerated = generatedDaily.at(-1) ?? 0
         const yesterdayGenerated = generatedDaily.at(-2) ?? 0
-        const last7 = generatedDaily.slice(-7)
-        const prev7 = generatedDaily.slice(-14, -7)
-        const last7Avg = last7.length > 0 ? sum(last7) / last7.length : 0
-        const prev7Avg = prev7.length > 0 ? sum(prev7) / prev7.length : 0
-        const trend = prev7Avg > 0 ? ((last7Avg - prev7Avg) / prev7Avg) * 100 : 0
-        const forecastTomorrow = last7Avg * (1 + Math.max(-0.5, Math.min(0.5, trend / 100)))
+        // Forecast and trend come straight from the server's least-squares fit on real history.
+        const forecastTomorrow = daily.generatedForecastKwh
+        const trend = daily.generatedTrendPercent
         const currentGenerationPowerKw = Math.max(daily.latestGenerationPowerKw ?? 0, 0)
         const maxGenerationPowerKw = daily.maximumGenerationPowerKw || 1
         const selfConsumptionPercent = daily.selfConsumptionRatio * 100
@@ -256,7 +251,7 @@ export function ElectricityGeneratorPage() {
                                 <div className="text-muted text-uppercase small">Prognoza produkcji</div>
                                 <div className="fs-4 d-flex align-items-center mt-1"><Fa.FaChartLine className="me-2 icon-accent" size={20} />{kwh.format(derived.forecastTomorrow)} kWh</div>
                                 <div className="small mt-1" style={{ color: derived.trend >= 0 ? '#357951' : '#984040' }}>
-                                    {derived.trend >= 0 ? '+' : ''}{percent.format(derived.trend)}% trend tygodniowy &bull; jutro szacunkowo
+                                    {derived.trend >= 0 ? '+' : ''}{percent.format(derived.trend)}% trend dzienny &bull; prognoza na jutro
                                 </div>
                             </Card>
                         </Col>

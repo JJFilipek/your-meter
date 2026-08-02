@@ -157,6 +157,9 @@ builder.Services.AddHostedService<MeterSimulationWorker>();
 builder.Services
     .AddOptions<TariffPricingOptions>()
     .Bind(builder.Configuration.GetSection(TariffPricingOptions.SectionName));
+builder.Services
+    .AddOptions<NetworkOptions>()
+    .Bind(builder.Configuration.GetSection(NetworkOptions.SectionName));
 builder.Services.AddScoped<EnergyPricingService>();
 
 builder.Services.AddProblemDetails();

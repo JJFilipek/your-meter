@@ -28,10 +28,6 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointEleme
 const kwh = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const pln = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' })
 
-// Estimated combined transmission + distribution loss share applied to imported energy.
-// Losses are not metered on site, so this is a transparent estimate over real registers.
-const LOSS_FACTOR = 0.078
-
 type RangeKey = 'day' | 'week' | 'month' | 'year'
 
 const ranges: Record<RangeKey, { label: string; days: number; bucket: MeterAnalytics['bucket']; unit: Intl.DateTimeFormatOptions }> = {
@@ -226,10 +222,10 @@ export function ChartsPage() {
                 }
             }
             case 'Wykres strat przesyłowych': {
-                const data = buckets.map((b) => b.importedKwh * LOSS_FACTOR)
+                const data = buckets.map((b) => b.lossKwh)
                 return {
-                    chartNode: <Bar data={{ labels, datasets: [{ label: `Szacowane straty (${(LOSS_FACTOR * 100).toFixed(1)}% poboru) [kWh]`, data, backgroundColor: red }] }} options={plainBar} />,
-                    chartCaption: `Szacunek strat przesyłu i dystrybucji jako ${(LOSS_FACTOR * 100).toFixed(1)}% energii pobranej.`,
+                    chartNode: <Bar data={{ labels, datasets: [{ label: 'Straty rezystancyjne I²R [kWh]', data, backgroundColor: red }] }} options={plainBar} />,
+                    chartCaption: 'Straty mocy na przewodach wyliczone z mierzonego prądu (I²·R).',
                     seriesForStats: data,
                     statsUnit: 'kWh',
                 }
