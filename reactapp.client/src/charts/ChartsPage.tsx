@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Alert, Breadcrumb, Button, ButtonGroup, Card, Col, Container, Form, Row, Spinner } from 'react-bootstrap'
-import { Bar } from 'react-chartjs-2'
+import { Bar, Line } from 'react-chartjs-2'
 import {
     BarElement,
     CategoryScale,
     Chart as ChartJS,
+    Filler,
     Legend,
+    LineElement,
     LinearScale,
+    PointElement,
     Tooltip,
 } from 'chart.js'
 import * as Fa from 'react-icons/fa'
@@ -20,32 +23,59 @@ import {
 } from '../api/meters'
 import type { Meter } from '../types/infrastructure/meter'
 
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend)
+ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointElement, Filler, Tooltip, Legend)
 
-const numberFormatter = new Intl.NumberFormat('pl-PL', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-})
-const dateFormatter = new Intl.DateTimeFormat('pl-PL', {
-    day: '2-digit',
-    month: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-})
+const kwh = new Intl.NumberFormat('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const pln = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'PLN' })
 
-const ranges = [
-    { label: '7 dni', days: 7, bucket: 'hour' as const },
-    { label: '30 dni', days: 30, bucket: 'day' as const },
-    { label: '180 dni', days: 180, bucket: 'day' as const },
-]
+// Estimated combined transmission + distribution loss share applied to imported energy.
+// Losses are not metered on site, so this is a transparent estimate over real registers.
+const LOSS_FACTOR = 0.078
+
+type RangeKey = 'day' | 'week' | 'month' | 'year'
+
+const ranges: Record<RangeKey, { label: string; days: number; bucket: MeterAnalytics['bucket']; unit: Intl.DateTimeFormatOptions }> = {
+    day: { label: 'Dzień', days: 1, bucket: 'hour', unit: { hour: '2-digit', minute: '2-digit' } },
+    week: { label: 'Tydzień', days: 7, bucket: 'hour', unit: { weekday: 'short', hour: '2-digit' } },
+    month: { label: 'Miesiąc', days: 30, bucket: 'day', unit: { day: '2-digit', month: '2-digit' } },
+    year: { label: 'Rok', days: 365, bucket: 'month', unit: { month: 'short', year: '2-digit' } },
+}
+
+const chartTypes = [
+    'Wykres energii',
+    'Wykres generacji',
+    'Wykres eksportu',
+    'Wykres autokonsumpcji',
+    'Wykres bilansu energetycznego',
+    'Wykres mocy szczytowej',
+    'Wykres strat przesyłowych',
+    'Wykres kosztów energii',
+] as const
+type ChartType = (typeof chartTypes)[number]
+
+const accent = '#660032'
+const green = '#7ecb20'
+const greenLight = '#c0f090'
+const amber = '#b08900'
+const red = '#d90429'
+
+const standardDeviation = (values: number[]) => {
+    if (values.length < 2) return 0
+    const mean = values.reduce((sum, value) => sum + value, 0) / values.length
+    const variance = values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / values.length
+    return Math.sqrt(variance)
+}
 
 export function ChartsPage() {
     const [meters, setMeters] = useState<Meter[]>([])
     const [selectedMeter, setSelectedMeter] = useState('')
-    const [rangeDays, setRangeDays] = useState(30)
+    const [range, setRange] = useState<RangeKey>('year')
+    const [selectedChart, setSelectedChart] = useState<ChartType>('Wykres energii')
+    const [energyType, setEnergyType] = useState<'import' | 'export'>('import')
+    const [targetTariff, setTargetTariff] = useState<TariffCode | ''>('')
     const [analytics, setAnalytics] = useState<MeterAnalytics | null>(null)
-    const [targetTariff, setTargetTariff] = useState<TariffCode>('G12')
     const [tariffSimulation, setTariffSimulation] = useState<TariffSimulation | null>(null)
+    const [ownTariffCost, setOwnTariffCost] = useState<TariffSimulation | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
@@ -63,25 +93,22 @@ export function ChartsPage() {
         return () => controller.abort()
     }, [])
 
+    const { fromIso, toIso, bucket } = useMemo(() => {
+        const config = ranges[range]
+        const to = new Date()
+        const from = new Date(to.getTime() - config.days * 24 * 60 * 60 * 1000)
+        return { fromIso: from.toISOString(), toIso: to.toISOString(), bucket: config.bucket }
+    }, [range])
+
     useEffect(() => {
         if (!selectedMeter) {
             setIsLoading(false)
             return
         }
-
         const controller = new AbortController()
-        const selectedRange = ranges.find((item) => item.days === rangeDays) ?? ranges[1]
-        const to = new Date()
-        const from = new Date(to.getTime() - selectedRange.days * 24 * 60 * 60 * 1000)
         setIsLoading(true)
         setError(null)
-        void getMeterAnalytics(
-            selectedMeter,
-            from.toISOString(),
-            to.toISOString(),
-            selectedRange.bucket,
-            controller.signal,
-        )
+        void getMeterAnalytics(selectedMeter, fromIso, toIso, bucket, controller.signal)
             .then(setAnalytics)
             .catch((loadError) => {
                 if (loadError instanceof DOMException && loadError.name === 'AbortError') return
@@ -91,64 +118,166 @@ export function ChartsPage() {
                 if (!controller.signal.aborted) setIsLoading(false)
             })
         return () => controller.abort()
-    }, [rangeDays, selectedMeter])
+    }, [selectedMeter, fromIso, toIso, bucket])
+
+    // The meter's own tariff cost drives the zone split; the picked target tariff simulates alternatives.
+    useEffect(() => {
+        if (!selectedMeter || !analytics) return
+        const controller = new AbortController()
+        const source = (['G11', 'G12', 'G12W'] as const).includes(analytics.tariff as TariffCode)
+            ? (analytics.tariff as TariffCode)
+            : 'G11'
+        void getTariffSimulation(selectedMeter, fromIso, toIso, source, controller.signal)
+            .then(setOwnTariffCost)
+            .catch(() => setOwnTariffCost(null))
+        return () => controller.abort()
+    }, [selectedMeter, fromIso, toIso, analytics])
 
     useEffect(() => {
-        if (!selectedMeter) {
+        if (!selectedMeter || !targetTariff) {
             setTariffSimulation(null)
             return
         }
-
         const controller = new AbortController()
-        const selectedRange = ranges.find((item) => item.days === rangeDays) ?? ranges[1]
-        const to = new Date()
-        const from = new Date(to.getTime() - selectedRange.days * 24 * 60 * 60 * 1000)
-        setTariffSimulation(null)
-        void getTariffSimulation(
-            selectedMeter,
-            from.toISOString(),
-            to.toISOString(),
-            targetTariff,
-            controller.signal,
-        )
+        void getTariffSimulation(selectedMeter, fromIso, toIso, targetTariff, controller.signal)
             .then(setTariffSimulation)
-            .catch((loadError) => {
-                if (loadError instanceof DOMException && loadError.name === 'AbortError') return
-                setError(loadError instanceof Error ? loadError.message : 'Nie udało się przeliczyć stref taryfowych.')
-            })
+            .catch(() => setTariffSimulation(null))
         return () => controller.abort()
-    }, [rangeDays, selectedMeter, targetTariff])
+    }, [selectedMeter, fromIso, toIso, targetTariff])
 
-    const chartData = useMemo(() => ({
-        labels: analytics?.buckets.map((bucket) => dateFormatter.format(new Date(bucket.startUtc))) ?? [],
-        datasets: [
-            {
-                label: 'Energia pobrana A+ [kWh]',
-                data: analytics?.buckets.map((bucket) => bucket.importedKwh) ?? [],
-                backgroundColor: '#660032',
-            },
-            {
-                label: 'Energia oddana A- [kWh]',
-                data: analytics?.buckets.map((bucket) => bucket.exportedKwh) ?? [],
-                backgroundColor: '#7ecb20',
-            },
-        ],
-    }), [analytics])
+    const labels = useMemo(() => {
+        const formatter = new Intl.DateTimeFormat('pl-PL', ranges[range].unit)
+        return analytics?.buckets.map((b) => formatter.format(new Date(b.startUtc))) ?? []
+    }, [analytics, range])
 
-    const bucketTotals = analytics?.buckets.map((bucket) => bucket.importedKwh + bucket.exportedKwh) ?? []
-    const average = bucketTotals.length > 0
-        ? bucketTotals.reduce((sum, value) => sum + value, 0) / bucketTotals.length
-        : 0
-    const maximum = bucketTotals.length > 0 ? Math.max(...bucketTotals) : 0
-    const minimum = bucketTotals.length > 0 ? Math.min(...bucketTotals) : 0
+    const { chartNode, chartCaption, seriesForStats, statsUnit } = useMemo(() => {
+        const buckets = analytics?.buckets ?? []
+        const barOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const } }, scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } } }
+        const plainBar = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const } }, scales: { y: { beginAtZero: true } } }
+        const lineOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' as const } }, scales: { y: { beginAtZero: true } } }
+
+        switch (selectedChart) {
+            case 'Wykres generacji': {
+                const data = buckets.map((b) => b.generatedKwh)
+                return {
+                    chartNode: <Bar data={{ labels, datasets: [{ label: 'Energia wytworzona [kWh]', data, backgroundColor: amber }] }} options={plainBar} />,
+                    chartCaption: 'Energia wyprodukowana lokalnie (rejestr generacji).',
+                    seriesForStats: data,
+                    statsUnit: 'kWh',
+                }
+            }
+            case 'Wykres eksportu': {
+                const data = buckets.map((b) => b.exportedKwh)
+                return {
+                    chartNode: <Bar data={{ labels, datasets: [{ label: 'Energia oddana A- [kWh]', data, backgroundColor: green }] }} options={plainBar} />,
+                    chartCaption: 'Energia oddana do sieci (rejestr A-).',
+                    seriesForStats: data,
+                    statsUnit: 'kWh',
+                }
+            }
+            case 'Wykres autokonsumpcji': {
+                const self = buckets.map((b) => b.selfConsumedKwh)
+                const exported = buckets.map((b) => b.exportedKwh)
+                return {
+                    chartNode: <Bar data={{ labels, datasets: [
+                        { label: 'Autokonsumpcja [kWh]', data: self, backgroundColor: accent },
+                        { label: 'Oddano do sieci [kWh]', data: exported, backgroundColor: greenLight },
+                    ] }} options={barOptions} />,
+                    chartCaption: 'Podział produkcji na energię zużytą lokalnie i oddaną do sieci.',
+                    seriesForStats: self,
+                    statsUnit: 'kWh',
+                }
+            }
+            case 'Wykres bilansu energetycznego': {
+                const data = buckets.map((b) => b.exportedKwh - b.importedKwh)
+                return {
+                    chartNode: <Bar data={{ labels, datasets: [{
+                        label: 'Bilans (oddano − pobrano) [kWh]',
+                        data,
+                        backgroundColor: data.map((value) => (value >= 0 ? green : accent)),
+                    }] }} options={plainBar} />,
+                    chartCaption: 'Dodatni bilans oznacza nadwyżkę energii oddanej nad pobraną.',
+                    seriesForStats: data,
+                    statsUnit: 'kWh',
+                }
+            }
+            case 'Wykres mocy szczytowej': {
+                const data = buckets.map((b) => b.maximumImportPowerKw)
+                return {
+                    chartNode: <Line data={{ labels, datasets: [{ label: 'Maks. moc poboru [kW]', data, borderColor: accent, backgroundColor: 'rgba(102,0,50,0.12)', fill: true, tension: 0.3, pointRadius: 1 }] }} options={lineOptions} />,
+                    chartCaption: 'Maksymalna chwilowa moc poboru w każdym przedziale.',
+                    seriesForStats: data,
+                    statsUnit: 'kW',
+                }
+            }
+            case 'Wykres strat przesyłowych': {
+                const data = buckets.map((b) => b.importedKwh * LOSS_FACTOR)
+                return {
+                    chartNode: <Bar data={{ labels, datasets: [{ label: `Szacowane straty (${(LOSS_FACTOR * 100).toFixed(1)}% poboru) [kWh]`, data, backgroundColor: red }] }} options={plainBar} />,
+                    chartCaption: `Szacunek strat przesyłu i dystrybucji jako ${(LOSS_FACTOR * 100).toFixed(1)}% energii pobranej.`,
+                    seriesForStats: data,
+                    statsUnit: 'kWh',
+                }
+            }
+            case 'Wykres kosztów energii': {
+                const data = buckets.map((b) => b.netCostPln)
+                return {
+                    chartNode: <Bar data={{ labels, datasets: [{ label: 'Koszt netto [zł]', data, backgroundColor: data.map((value) => (value >= 0 ? accent : green)) }] }} options={plainBar} />,
+                    chartCaption: 'Koszt energii pobranej pomniejszony o wartość energii oddanej.',
+                    seriesForStats: data,
+                    statsUnit: 'zł',
+                }
+            }
+            default: {
+                const imported = buckets.map((b) => b.importedKwh)
+                const exported = buckets.map((b) => b.exportedKwh)
+                return {
+                    chartNode: <Bar data={{ labels, datasets: [
+                        { label: 'Pobrano A+ [kWh]', data: imported, backgroundColor: accent },
+                        { label: 'Oddano A- [kWh]', data: exported, backgroundColor: green },
+                    ] }} options={barOptions} />,
+                    chartCaption: 'Energia pobrana i oddana w każdym przedziale.',
+                    seriesForStats: energyType === 'export' ? exported : imported,
+                    statsUnit: 'kWh',
+                }
+            }
+        }
+    }, [analytics, labels, selectedChart, energyType])
+
+    const stats = useMemo(() => {
+        if (seriesForStats.length === 0 || !analytics) return null
+        const total = seriesForStats.reduce((sum, value) => sum + value, 0)
+        const average = total / seriesForStats.length
+        let maxIndex = 0
+        let minIndex = 0
+        seriesForStats.forEach((value, index) => {
+            if (value > seriesForStats[maxIndex]) maxIndex = index
+            if (value < seriesForStats[minIndex]) minIndex = index
+        })
+        const variability = average !== 0 ? (standardDeviation(seriesForStats) / Math.abs(average)) * 100 : 0
+        const dateFormatter = new Intl.DateTimeFormat('pl-PL', { dateStyle: 'medium' })
+        return {
+            total,
+            average,
+            max: seriesForStats[maxIndex],
+            maxAt: analytics.buckets[maxIndex] ? dateFormatter.format(new Date(analytics.buckets[maxIndex].startUtc)) : '',
+            min: seriesForStats[minIndex],
+            minAt: analytics.buckets[minIndex] ? dateFormatter.format(new Date(analytics.buckets[minIndex].startUtc)) : '',
+            variability,
+        }
+    }, [seriesForStats, analytics])
+
+    const zoneSplit = ownTariffCost?.zones ?? []
+    const zoneColors = [accent, green, amber, greenLight, red]
+    const formatStat = (value: number) => (statsUnit === 'zł' ? pln.format(value) : `${kwh.format(value)} ${statsUnit}`)
 
     return (
         <Container fluid>
             <Breadcrumb className="mb-3"><Breadcrumb.Item active>Wykresy</Breadcrumb.Item></Breadcrumb>
             <Row className="align-items-center mb-4 g-3">
                 <Col>
-                    <h3 className="fw-semibold mb-0"><Fa.FaChartBar className="me-2 icon-accent" /> Wykresy energii</h3>
-                    <div className="text-muted small mt-1">Dane agregowane bezpośrednio z rejestrów liczników na VPS-ie.</div>
+                    <h3 className="fw-semibold mb-0"><Fa.FaChartBar className="me-2 icon-accent" /> Wykresy</h3>
+                    <div className="text-muted small mt-1">Wszystkie serie liczone po stronie serwera z rejestrów liczników.</div>
                 </Col>
                 <Col xs="auto">
                     <Form.Group className="d-flex align-items-center gap-2">
@@ -160,13 +289,30 @@ export function ChartsPage() {
                 </Col>
             </Row>
 
-            <ButtonGroup className="mb-3">
-                {ranges.map((range) => (
-                    <Button key={range.days} variant={rangeDays === range.days ? 'primary' : 'outline-secondary'} onClick={() => setRangeDays(range.days)}>
-                        {range.label}
+            <ButtonGroup className="mb-3 flex-wrap">
+                {chartTypes.map((name) => (
+                    <Button key={name} variant={selectedChart === name ? 'primary' : 'outline-secondary'} onClick={() => setSelectedChart(name)}>
+                        {name.replace('Wykres ', '')}
                     </Button>
                 ))}
             </ButtonGroup>
+
+            <div className="border rounded px-3 py-2 d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
+                <ButtonGroup size="sm">
+                    {(Object.keys(ranges) as RangeKey[]).map((key) => (
+                        <Button key={key} variant={range === key ? 'primary' : 'outline-secondary'} onClick={() => setRange(key)}>
+                            {ranges[key].label}
+                        </Button>
+                    ))}
+                </ButtonGroup>
+                <div className="d-flex align-items-center gap-2">
+                    <span className="text-muted small">Energia</span>
+                    <Form.Select size="sm" style={{ minWidth: 150 }} value={energyType} onChange={(event) => setEnergyType(event.target.value as 'import' | 'export')}>
+                        <option value="import">Pobrana A+</option>
+                        <option value="export">Oddana A-</option>
+                    </Form.Select>
+                </div>
+            </div>
 
             {error && <Alert variant="danger">{error}</Alert>}
             {isLoading ? (
@@ -175,92 +321,106 @@ export function ChartsPage() {
                 <Alert variant="info">Brak pomiarów w wybranym okresie.</Alert>
             ) : (
                 <>
-                    <Row className="g-3 mb-3">
-                        {[
-                            { label: 'Pobrano', value: analytics.importedKwh, icon: Fa.FaArrowDown },
-                            { label: 'Oddano', value: analytics.exportedKwh, icon: Fa.FaArrowUp },
-                            { label: 'Średnia na przedział', value: average, icon: Fa.FaChartLine },
-                            { label: 'Maksimum przedziału', value: maximum, icon: Fa.FaBolt },
-                        ].map((card) => (
-                            <Col md={6} xl={3} key={card.label}>
-                                <Card className="h-100 p-3">
-                                    <div className="text-muted text-uppercase small">{card.label}</div>
-                                    <div className="fs-4 mt-1"><card.icon className="me-2 icon-accent" />{numberFormatter.format(card.value)} kWh</div>
-                                </Card>
-                            </Col>
-                        ))}
-                    </Row>
-                    <Row className="g-3">
-                        <Col xl={9}>
-                            <Card className="h-100"><Card.Body>
-                                <div className="text-uppercase small fw-bold mb-2">Przyrosty rejestrów w czasie</div>
-                                <div style={{ height: 500 }}>
-                                    <Bar data={chartData} options={{ responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } } }} />
+                    <Row className="g-4">
+                        <Col lg={9}>
+                            <Card className="h-100"><Card.Body className="d-flex flex-column">
+                                <div className="text-uppercase small fw-bold mb-1">{selectedChart}</div>
+                                <div className="text-muted small mb-2">{chartCaption}</div>
+                                <div style={{ height: 520, minHeight: 150 }}>{chartNode}</div>
+                            </Card.Body></Card>
+                        </Col>
+                        <Col lg={3}>
+                            <Card className="h-100"><Card.Body className="d-flex flex-column">
+                                <div className="text-uppercase small fw-bold mb-3">Statystyki</div>
+                                {stats && (
+                                    <div className="d-flex flex-column gap-3 flex-grow-1">
+                                        <StatRow icon={<Fa.FaChartBar color={accent} />} label="Średnia na przedział" value={formatStat(stats.average)} />
+                                        <StatRow icon={<Fa.FaLayerGroup color={green} />} label="Liczba przedziałów" value={String(seriesForStats.length)} />
+                                        <StatRow icon={<Fa.FaArrowUp color="#888" />} label="Maksimum" value={formatStat(stats.max)} sub={stats.maxAt} />
+                                        <StatRow icon={<Fa.FaArrowDown color={greenLight} />} label="Minimum" value={formatStat(stats.min)} sub={stats.minAt} />
+                                        <StatRow icon={<Fa.FaWaveSquare color="#17a2b8" />} label="Zmienność" value={`±${stats.variability.toFixed(1)}%`} />
+                                    </div>
+                                )}
+                                <div className="mt-auto text-center border-top pt-3">
+                                    <span className="fw-semibold">Suma w okresie:</span>{' '}
+                                    <span className="text-success fw-bold">{stats ? formatStat(stats.total) : '-'}</span>
                                 </div>
                             </Card.Body></Card>
                         </Col>
-                        <Col xl={3}>
+                    </Row>
+
+                    <Row className="g-4 mt-1">
+                        <Col lg={9}>
                             <Card className="h-100"><Card.Body>
-                                <div className="text-uppercase small fw-bold mb-3">Statystyki pomiarów</div>
-                                <dl className="mb-0">
-                                    <dt>Licznik</dt><dd>{analytics.serialNo}</dd>
-                                    <dt>Taryfa</dt><dd>{analytics.tariff}</dd>
-                                    <dt>Minimum przedziału</dt><dd>{numberFormatter.format(minimum)} kWh</dd>
-                                    <dt>Średnie obciążenie</dt><dd>{numberFormatter.format(analytics.averageAbsolutePowerKw)} kW</dd>
-                                    <dt>Maksymalny pobór mocy</dt><dd>{numberFormatter.format(analytics.maximumImportPowerKw)} kW</dd>
-                                    <dt>Maksymalny eksport mocy</dt><dd>{numberFormatter.format(analytics.maximumExportPowerKw)} kW</dd>
-                                    <dt>Liczba próbek</dt><dd>{analytics.buckets.reduce((sum, bucket) => sum + bucket.sampleCount, 0).toLocaleString('pl-PL')}</dd>
-                                </dl>
+                                <div className="text-uppercase small fw-bold mb-2">Podział na strefy taryfowe</div>
+                                {zoneSplit.length > 0 ? (
+                                    <>
+                                        <div className="d-flex justify-content-center gap-4 mb-2 flex-wrap">
+                                            {zoneSplit.map((zone, index) => (
+                                                <div key={zone.code} className="d-flex align-items-center gap-1">
+                                                    <span style={{ width: 20, height: 10, backgroundColor: zoneColors[index % zoneColors.length], display: 'inline-block' }} />
+                                                    <span className="small text-muted">{zone.name} ({kwh.format(zone.percentage)}%)</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="d-flex" style={{ height: 40, borderRadius: 6, overflow: 'hidden' }}>
+                                            {zoneSplit.map((zone, index) => (
+                                                <div key={zone.code} title={`${zone.name}: ${kwh.format(zone.energyKwh)} kWh`} style={{ width: `${zone.percentage}%`, background: zoneColors[index % zoneColors.length] }} />
+                                            ))}
+                                        </div>
+                                        <div className="d-flex justify-content-between small text-muted mt-2">
+                                            <span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100%</span>
+                                        </div>
+                                    </>
+                                ) : <div className="text-muted small">Brak danych o podziale na strefy.</div>}
+                            </Card.Body></Card>
+                        </Col>
+                        <Col lg={3}>
+                            <Card className="h-100"><Card.Body className="d-flex flex-column">
+                                <div className="text-uppercase small fw-bold mb-2">Symulacja taryfy</div>
+                                <Form.Select value={targetTariff} onChange={(event) => setTargetTariff(event.target.value as TariffCode | '')} className="mb-3">
+                                    <option value="">Wybierz taryfę</option>
+                                    <option value="G11">G11</option>
+                                    <option value="G12">G12</option>
+                                    <option value="G12W">G12W</option>
+                                </Form.Select>
+                                {ownTariffCost && (
+                                    <div className="small text-muted mb-2">
+                                        Obecny koszt netto ({ownTariffCost.sourceTariff}): <strong className="text-body">{pln.format(ownTariffCost.netCostPln)}</strong>
+                                    </div>
+                                )}
+                                {tariffSimulation ? (
+                                    <div className="flex-grow-1">
+                                        <div className="d-flex justify-content-between"><span className="text-muted">Koszt energii</span><strong>{pln.format(tariffSimulation.energyCostPln)}</strong></div>
+                                        <div className="d-flex justify-content-between"><span className="text-muted">Wartość oddanej</span><strong className="text-success">−{pln.format(tariffSimulation.exportCompensationPln)}</strong></div>
+                                        <div className="d-flex justify-content-between border-top pt-2 mt-2"><span className="fw-semibold">Koszt netto</span><strong style={{ color: accent }}>{pln.format(tariffSimulation.netCostPln)}</strong></div>
+                                        {ownTariffCost && (
+                                            <div className="mt-3 small" style={{ color: tariffSimulation.netCostPln <= ownTariffCost.netCostPln ? '#357951' : red }}>
+                                                {tariffSimulation.netCostPln <= ownTariffCost.netCostPln
+                                                    ? `Oszczędność ${pln.format(ownTariffCost.netCostPln - tariffSimulation.netCostPln)} względem obecnej taryfy.`
+                                                    : `Droższe o ${pln.format(tariffSimulation.netCostPln - ownTariffCost.netCostPln)} względem obecnej taryfy.`}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : <div className="text-muted small">Wybierz taryfę, aby porównać koszty.</div>}
                             </Card.Body></Card>
                         </Col>
                     </Row>
-                    <Card className="mt-3"><Card.Body>
-                        <Row className="align-items-center g-3 mb-3">
-                            <Col>
-                                <div className="text-uppercase small fw-bold">Przeliczenie stref taryfowych</div>
-                                <div className="text-muted small mt-1">
-                                    Rzeczywiste przyrosty rejestru A+ są przypisywane do godzin wybranej taryfy w polskiej strefie czasowej.
-                                </div>
-                            </Col>
-                            <Col sm="auto">
-                                <Form.Group className="d-flex align-items-center gap-2">
-                                    <Form.Label className="mb-0 text-nowrap">Przelicz jako:</Form.Label>
-                                    <Form.Select
-                                        value={targetTariff}
-                                        onChange={(event) => setTargetTariff(event.target.value as TariffCode)}
-                                        aria-label="Taryfa do przeliczenia"
-                                    >
-                                        <option value="G11">G11</option>
-                                        <option value="G12">G12</option>
-                                        <option value="G12W">G12W</option>
-                                    </Form.Select>
-                                </Form.Group>
-                            </Col>
-                        </Row>
-                        {tariffSimulation && (
-                            <>
-                                <div className="mb-3">
-                                    <span className="text-muted">Taryfa licznika: </span>
-                                    <strong>{tariffSimulation.sourceTariff}</strong>
-                                    <span className="text-muted ms-3">Łączne pobranie: </span>
-                                    <strong>{numberFormatter.format(tariffSimulation.totalImportedKwh)} kWh</strong>
-                                </div>
-                                <Row className="g-3">
-                                    {tariffSimulation.zones.map((zone) => (
-                                        <Col md={6} xl={4} key={zone.code}>
-                                            <Card className="h-100 bg-light border-0"><Card.Body>
-                                                <div className="text-muted small text-uppercase">{zone.name}</div>
-                                                <div className="fs-4 mt-1">{numberFormatter.format(zone.energyKwh)} kWh</div>
-                                                <div className="text-muted">{numberFormatter.format(zone.percentage)}% pobrania</div>
-                                            </Card.Body></Card>
-                                        </Col>
-                                    ))}
-                                </Row>
-                            </>
-                        )}
-                    </Card.Body></Card>
                 </>
             )}
         </Container>
+    )
+}
+
+function StatRow({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
+    return (
+        <div className="d-flex align-items-center">
+            <span className="me-3 fs-5">{icon}</span>
+            <div>
+                <div className="fw-semibold">{label}</div>
+                <div className="fw-bold">{value}</div>
+                {sub && <div className="text-muted small">{sub}</div>}
+            </div>
+        </div>
     )
 }

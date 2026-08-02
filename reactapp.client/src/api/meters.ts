@@ -53,10 +53,14 @@ export type AnalyticsBucket = {
     endUtc: string
     importedKwh: number
     exportedKwh: number
+    generatedKwh: number
+    selfConsumedKwh: number
     averagePowerKw: number
     averageAbsolutePowerKw: number
     maximumImportPowerKw: number
     maximumExportPowerKw: number
+    maximumGenerationPowerKw: number
+    netCostPln: number
     sampleCount: number
 }
 
@@ -66,17 +70,26 @@ export type MeterAnalytics = {
     name: string
     tariff: string
     referencePowerKw: number | null
+    contractedPowerKw: number
+    connectionPowerKw: number
     fromUtc: string
     toUtc: string
     bucket: 'hour' | 'day' | 'month'
     importedKwh: number
     exportedKwh: number
+    generatedKwh: number
+    selfConsumedKwh: number
+    selfConsumptionRatio: number
+    netCostPln: number
     latestPowerKw: number | null
+    latestGenerationPowerKw: number | null
     latestReadingAtUtc: string | null
     maximumImportPowerKw: number
     maximumImportPowerAtUtc: string | null
     maximumExportPowerKw: number
     maximumExportPowerAtUtc: string | null
+    maximumGenerationPowerKw: number
+    maximumGenerationPowerAtUtc: string | null
     averageAbsolutePowerKw: number
     buckets: AnalyticsBucket[]
 }
@@ -88,6 +101,8 @@ export type TariffZone = {
     name: string
     energyKwh: number
     percentage: number
+    ratePlnPerKwh: number
+    costPln: number
 }
 
 export type TariffSimulation = {
@@ -97,7 +112,72 @@ export type TariffSimulation = {
     fromUtc: string
     toUtc: string
     totalImportedKwh: number
+    totalExportedKwh: number
+    energyCostPln: number
+    exportCompensationPln: number
+    netCostPln: number
     zones: TariffZone[]
+}
+
+export type PmaxDistributionCell = {
+    weekday: number
+    hour: number
+    averagePowerKw: number
+    maximumPowerKw: number
+    sampleCount: number
+}
+
+export type PmaxDailyMaximum = {
+    date: string
+    maximumPowerKw: number
+}
+
+export type PmaxAlert = {
+    timestampUtc: string
+    severity: 'danger' | 'warning' | 'info'
+    message: string
+}
+
+export type PmaxZoneExceedance = {
+    code: string
+    name: string
+    contractedPowerKw: number
+    peakPowerKw: number
+    exceedanceKw: number
+    costPln: number
+}
+
+export type PmaxExceedanceCost = {
+    contractedExceedanceCount: number
+    connectionExceedanceCount: number
+    additionalCostPln: number
+    estimatedEnergyCostPln: number
+    billImpactPercent: number
+    zones: PmaxZoneExceedance[]
+}
+
+export type MeterInsights = {
+    meterId: string
+    serialNo: string
+    name: string
+    tariff: string
+    register: 'import' | 'export'
+    fromUtc: string
+    toUtc: string
+    contractedPowerKw: number
+    connectionPowerKw: number
+    alertThresholdKw: number
+    currentPowerKw: number
+    peakPowerKw: number
+    peakPowerAtUtc: string | null
+    averagePowerKw: number
+    utilizationPercent: number
+    thresholdExceedanceCount: number
+    dailyMaxima: PmaxDailyMaximum[]
+    distribution: PmaxDistributionCell[]
+    alerts: PmaxAlert[]
+    recommendations: string[]
+    exceedanceCost: PmaxExceedanceCost
 }
 
 export type Simulator = {
@@ -188,6 +268,17 @@ export const getTariffSimulation = (
 ) => {
     const query = new URLSearchParams({ fromUtc, toUtc, tariff })
     return apiRequest<TariffSimulation>(`/api/meters/${meterId}/tariff-simulation?${query}`, { signal })
+}
+
+export const getMeterInsights = (
+    meterId: string,
+    fromUtc: string,
+    toUtc: string,
+    register: 'import' | 'export',
+    signal?: AbortSignal,
+) => {
+    const query = new URLSearchParams({ fromUtc, toUtc, register })
+    return apiRequest<MeterInsights>(`/api/meters/${meterId}/insights?${query}`, { signal })
 }
 
 export const getSimulators = (signal?: AbortSignal) =>
