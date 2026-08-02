@@ -40,7 +40,9 @@ export type MeterReading = {
     timestampUtc: string
     activeImportKwh: number
     activeExportKwh: number
+    activeGenerationKwh: number
     activePowerKw: number
+    generationPowerKw: number
     reactivePowerKvar: number | null
     voltage: number | null
     current: number | null

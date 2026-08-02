@@ -11,7 +11,9 @@ import './ColumnViewBar.css'
 const readingColumns = [
     { key: 'activeImportKwh', label: 'Energia pobrana (kWh)' },
     { key: 'activeExportKwh', label: 'Energia oddana (kWh)' },
+    { key: 'activeGenerationKwh', label: 'Energia wytworzona (kWh)' },
     { key: 'activePowerKw', label: 'Moc czynna (kW)' },
+    { key: 'generationPowerKw', label: 'Moc generacji (kW)' },
     { key: 'reactivePowerKvar', label: 'Moc bierna (kvar)' },
     { key: 'voltage', label: 'Napięcie (V)' },
     { key: 'current', label: 'Prąd (A)' },
