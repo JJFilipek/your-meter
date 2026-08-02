@@ -527,6 +527,24 @@ footer small {
     white-space: normal;
 }
 
+.notif-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--bs-primary, #660032);
+    margin-top: 6px;
+    margin-right: 6px;
+    flex-shrink: 0;
+}
+
+.notif-dot.is-read {
+    background: transparent;
+}
+
+.notif-item.notif-read {
+    opacity: 0.55;
+}
+
 /* On small screens the sidebar is off-canvas, so ignore the desktop collapse. */
 @media (max-width: 991.98px) {
     .collapse-toggle {

@@ -43,10 +43,19 @@ export type AppAlert = {
 type NotificationsValue = {
     alerts: AppAlert[]
     isLoading: boolean
+    unreadCount: number
     refresh: () => void
+    isRead: (alert: AppAlert) => boolean
+    markRead: (alert: AppAlert) => void
+    markAllRead: () => void
 }
 
 const NotificationsContext = createContext<NotificationsValue | null>(null)
+
+const READ_STORAGE_KEY = 'readAlertKeys'
+
+// Stable identity for an alert so its read state survives refreshes and reloads.
+export const alertKey = (alert: AppAlert) => `${alert.meterId}|${alert.timestampUtc}|${alert.message}`
 
 export function useNotifications(): NotificationsValue {
     const context = useContext(NotificationsContext)
@@ -66,6 +75,34 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
 
     const [alerts, setAlerts] = useState<AppAlert[]>([])
     const [alertsLoading, setAlertsLoading] = useState(false)
+    const [readKeys, setReadKeys] = useState<Set<string>>(() => {
+        try {
+            return new Set<string>(JSON.parse(localStorage.getItem(READ_STORAGE_KEY) ?? '[]'))
+        } catch {
+            return new Set<string>()
+        }
+    })
+
+    const persistReadKeys = useCallback((next: Set<string>) => {
+        setReadKeys(next)
+        localStorage.setItem(READ_STORAGE_KEY, JSON.stringify([...next]))
+    }, [])
+
+    const isRead = useCallback((alert: AppAlert) => readKeys.has(alertKey(alert)), [readKeys])
+
+    const markRead = useCallback((alert: AppAlert) => {
+        const key = alertKey(alert)
+        if (readKeys.has(key)) return
+        persistReadKeys(new Set(readKeys).add(key))
+    }, [readKeys, persistReadKeys])
+
+    const markAllRead = useCallback(() => {
+        const next = new Set(readKeys)
+        for (const alert of alerts) next.add(alertKey(alert))
+        persistReadKeys(next)
+    }, [alerts, readKeys, persistReadKeys])
+
+    const unreadCount = alerts.reduce((count, alert) => (readKeys.has(alertKey(alert)) ? count : count + 1), 0)
 
     const setSelectedMeterId = useCallback((id: string) => {
         setSelectedMeterIdState(id)
@@ -134,9 +171,22 @@ export function AppStateProvider({ children }: { children: ReactNode }) {
         refresh()
     }, [refresh])
 
+    // Drop read markers for alerts that have aged out of the window, keeping the store bounded.
+    // Skip while there are no alerts yet (e.g. during the initial load) so nothing is wiped early.
+    useEffect(() => {
+        if (alerts.length === 0) return
+        const valid = new Set(alerts.map(alertKey))
+        setReadKeys((previous) => {
+            const filtered = [...previous].filter((key) => valid.has(key))
+            if (filtered.length === previous.size) return previous
+            localStorage.setItem(READ_STORAGE_KEY, JSON.stringify(filtered))
+            return new Set(filtered)
+        })
+    }, [alerts])
+
     return (
         <MeterSelectionContext.Provider value={{ meters, selectedMeterId, setSelectedMeterId, isLoading, error }}>
-            <NotificationsContext.Provider value={{ alerts, isLoading: alertsLoading, refresh }}>
+            <NotificationsContext.Provider value={{ alerts, isLoading: alertsLoading, unreadCount, refresh, isRead, markRead, markAllRead }}>
                 {children}
             </NotificationsContext.Provider>
         </MeterSelectionContext.Provider>
