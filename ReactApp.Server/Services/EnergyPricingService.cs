@@ -30,20 +30,24 @@ public sealed class EnergyPricingService(IOptions<TariffPricingOptions> options)
     public double ConnectionPowerExceedancePenaltyPlnPerKw =>
         pricing.ConnectionPowerExceedancePenaltyPlnPerKw;
 
-    /// <summary>Contracted power (moc umowna) rounded to a realistic step above the meter's base power.</summary>
+    /// <summary>
+    /// Contracted power (moc umowna) rounded to a realistic step just above the meter's base
+    /// power, so that unusually high daily peaks occasionally exceed it – exactly the situation
+    /// the peak-power view is meant to surface.
+    /// </summary>
     public static double ContractedPowerKw(double basePowerKw)
     {
-        var raw = Math.Max(basePowerKw * 2.4, basePowerKw + 1);
+        var raw = Math.Max(basePowerKw * 1.1, basePowerKw + 0.5);
         return basePowerKw >= 20
             ? Math.Ceiling(raw / 5) * 5
-            : Math.Max(4, Math.Ceiling(raw));
+            : Math.Max(1, Math.Ceiling(raw));
     }
 
-    /// <summary>Connection power (moc przyłączeniowa) sitting ~20% above the contracted power.</summary>
+    /// <summary>Connection power (moc przyłączeniowa) sitting ~30% above the contracted power.</summary>
     public static double ConnectionPowerKw(double basePowerKw)
     {
         var contracted = ContractedPowerKw(basePowerKw);
-        var raw = contracted * 1.2;
+        var raw = contracted * 1.3;
         return basePowerKw >= 20
             ? Math.Ceiling(raw / 5) * 5
             : Math.Ceiling(raw);

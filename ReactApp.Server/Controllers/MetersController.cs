@@ -9,7 +9,7 @@ namespace ReactApp.Server.Controllers;
 
 [ApiController]
 [Route("api/meters")]
-public sealed class MetersController(AppDbContext dbContext) : ControllerBase
+public sealed class MetersController(AppDbContext dbContext, EnergyPricingService pricing) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<MeterDto>>(StatusCodes.Status200OK)]
@@ -243,6 +243,7 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
             .OrderBy(x => x.TimestampUtc)
             .ToListAsync(cancellationToken);
 
+        var exportRate = pricing.ExportCompensationPlnPerKwh;
         var aggregates = new SortedDictionary<DateTime, AnalyticsAccumulator>();
         MeterReading? preceding = previous;
         foreach (var reading in readings)
@@ -256,15 +257,23 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
 
             if (preceding is not null)
             {
-                accumulator.ImportedKwh += Math.Max(
-                    0,
-                    reading.ActiveImportKwh - preceding.ActiveImportKwh);
-                accumulator.ExportedKwh += Math.Max(
-                    0,
-                    reading.ActiveExportKwh - preceding.ActiveExportKwh);
+                var importedKwh = Math.Max(0, reading.ActiveImportKwh - preceding.ActiveImportKwh);
+                var exportedKwh = Math.Max(0, reading.ActiveExportKwh - preceding.ActiveExportKwh);
+                var generatedKwh = Math.Max(0, reading.ActiveGenerationKwh - preceding.ActiveGenerationKwh);
+                var intervalMiddleUtc = preceding.TimestampUtc.AddTicks(
+                    (reading.TimestampUtc - preceding.TimestampUtc).Ticks / 2);
+                var zoneRate = pricing.ZoneRatePlnPerKwh(
+                    meter.Tariff,
+                    ResolveTariffZone(meter.Tariff, intervalMiddleUtc));
+                accumulator.ImportedKwh += importedKwh;
+                accumulator.ExportedKwh += exportedKwh;
+                accumulator.GeneratedKwh += generatedKwh;
+                accumulator.SelfConsumedKwh += Math.Max(0, generatedKwh - exportedKwh);
+                accumulator.NetCostPln += importedKwh * zoneRate - exportedKwh * exportRate;
             }
 
             accumulator.AddPower(reading.ActivePowerKw);
+            accumulator.AddGenerationPower(reading.GenerationPowerKw);
             preceding = reading;
         }
 
@@ -274,19 +283,29 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
         var maximumExportReading = readings
             .Where(x => x.ActivePowerKw < 0)
             .MinBy(x => x.ActivePowerKw);
+        var maximumGenerationReading = readings
+            .Where(x => x.GenerationPowerKw > 0)
+            .MaxBy(x => x.GenerationPowerKw);
         var buckets = aggregates
             .Select(item => new MeterAnalyticsBucketDto(
                 item.Key,
                 ResolveBucketEnd(item.Key, normalizedBucket),
                 Math.Round(item.Value.ImportedKwh, 6),
                 Math.Round(item.Value.ExportedKwh, 6),
+                Math.Round(item.Value.GeneratedKwh, 6),
+                Math.Round(item.Value.SelfConsumedKwh, 6),
                 Math.Round(item.Value.AveragePowerKw, 4),
                 Math.Round(item.Value.AverageAbsolutePowerKw, 4),
                 Math.Round(item.Value.MaximumImportPowerKw, 4),
                 Math.Round(item.Value.MaximumExportPowerKw, 4),
+                Math.Round(item.Value.MaximumGenerationPowerKw, 4),
+                Math.Round(item.Value.NetCostPln, 2),
                 item.Value.SampleCount))
             .ToArray();
         var latest = readings.LastOrDefault();
+        var basePowerKw = pricing.ResolveBasePowerKw(meter);
+        var totalGeneratedKwh = buckets.Sum(x => x.GeneratedKwh);
+        var totalSelfConsumedKwh = buckets.Sum(x => x.SelfConsumedKwh);
 
         return Ok(new MeterAnalyticsDto(
             meter.Id,
@@ -294,17 +313,26 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
             meter.Name,
             meter.Tariff,
             meter.SimulationBasePowerKw,
+            EnergyPricingService.ContractedPowerKw(basePowerKw),
+            EnergyPricingService.ConnectionPowerKw(basePowerKw),
             from,
             to,
             normalizedBucket,
             Math.Round(buckets.Sum(x => x.ImportedKwh), 6),
             Math.Round(buckets.Sum(x => x.ExportedKwh), 6),
+            Math.Round(totalGeneratedKwh, 6),
+            Math.Round(totalSelfConsumedKwh, 6),
+            totalGeneratedKwh <= 0 ? 0 : Math.Round(totalSelfConsumedKwh / totalGeneratedKwh, 4),
+            Math.Round(buckets.Sum(x => x.NetCostPln), 2),
             latest?.ActivePowerKw,
+            latest?.GenerationPowerKw,
             latest?.TimestampUtc,
             Math.Round(maximumImportReading?.ActivePowerKw ?? 0, 4),
             maximumImportReading?.TimestampUtc,
             Math.Round(Math.Abs(maximumExportReading?.ActivePowerKw ?? 0), 4),
             maximumExportReading?.TimestampUtc,
+            Math.Round(maximumGenerationReading?.GenerationPowerKw ?? 0, 4),
+            maximumGenerationReading?.TimestampUtc,
             Math.Round(
                 readings.Count == 0
                     ? 0
@@ -367,12 +395,14 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
             .ToListAsync(cancellationToken);
 
         var zones = CreateTariffZones(targetTariff);
+        var totalExportedKwh = 0d;
         MeterReading? preceding = previous;
         foreach (var reading in readings)
         {
             if (preceding is not null)
             {
                 var importedKwh = Math.Max(0, reading.ActiveImportKwh - preceding.ActiveImportKwh);
+                totalExportedKwh += Math.Max(0, reading.ActiveExportKwh - preceding.ActiveExportKwh);
                 var intervalMiddleUtc = preceding.TimestampUtc.AddTicks(
                     (reading.TimestampUtc - preceding.TimestampUtc).Ticks / 2);
                 zones[ResolveTariffZone(targetTariff, intervalMiddleUtc)].EnergyKwh += importedKwh;
@@ -383,14 +413,22 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
 
         var totalImportedKwh = zones.Values.Sum(x => x.EnergyKwh);
         var zoneDtos = zones.Values
-            .Select(x => new TariffZoneDto(
-                x.Code,
-                x.Name,
-                Math.Round(x.EnergyKwh, 6),
-                totalImportedKwh == 0
-                    ? 0
-                    : Math.Round(x.EnergyKwh / totalImportedKwh * 100, 2)))
+            .Select(x =>
+            {
+                var rate = pricing.ZoneRatePlnPerKwh(targetTariff, x.Code);
+                return new TariffZoneDto(
+                    x.Code,
+                    x.Name,
+                    Math.Round(x.EnergyKwh, 6),
+                    totalImportedKwh == 0
+                        ? 0
+                        : Math.Round(x.EnergyKwh / totalImportedKwh * 100, 2),
+                    rate,
+                    Math.Round(x.EnergyKwh * rate, 2));
+            })
             .ToArray();
+        var energyCostPln = zoneDtos.Sum(x => x.CostPln);
+        var exportCompensationPln = totalExportedKwh * pricing.ExportCompensationPlnPerKwh;
 
         return Ok(new TariffSimulationDto(
             meter.Id,
@@ -399,8 +437,319 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
             from,
             to,
             Math.Round(totalImportedKwh, 6),
+            Math.Round(totalExportedKwh, 6),
+            Math.Round(energyCostPln, 2),
+            Math.Round(exportCompensationPln, 2),
+            Math.Round(energyCostPln - exportCompensationPln, 2),
             zoneDtos));
     }
+
+    [HttpGet("{id:guid}/insights")]
+    [ProducesResponseType<MeterInsightsDto>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<MeterInsightsDto>> GetInsights(
+        Guid id,
+        [FromQuery] DateTime? fromUtc,
+        [FromQuery] DateTime? toUtc,
+        [FromQuery] string register = "import",
+        CancellationToken cancellationToken = default)
+    {
+        var meter = await dbContext.Meters
+            .AsNoTracking()
+            .SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
+        if (meter is null)
+        {
+            return NotFound();
+        }
+
+        var to = NormalizeUtc(toUtc ?? DateTime.UtcNow);
+        var from = NormalizeUtc(fromUtc ?? to.AddDays(-30));
+        var normalizedRegister = register.Trim().ToLowerInvariant() == "export" ? "export" : "import";
+        if (from >= to)
+        {
+            ModelState.AddModelError(nameof(fromUtc), "Początek zakresu musi być wcześniejszy niż koniec.");
+        }
+
+        if (to - from > TimeSpan.FromDays(366))
+        {
+            ModelState.AddModelError(nameof(fromUtc), "Zakres analizy nie może przekraczać 366 dni.");
+        }
+
+        if (!ModelState.IsValid)
+        {
+            return ValidationProblem(ModelState);
+        }
+
+        var previous = await dbContext.MeterReadings
+            .AsNoTracking()
+            .Where(x => x.MeterId == id && x.TimestampUtc < from)
+            .OrderByDescending(x => x.TimestampUtc)
+            .FirstOrDefaultAsync(cancellationToken);
+        var readings = await dbContext.MeterReadings
+            .AsNoTracking()
+            .Where(x => x.MeterId == id && x.TimestampUtc >= from && x.TimestampUtc <= to)
+            .OrderBy(x => x.TimestampUtc)
+            .ToListAsync(cancellationToken);
+
+        var basePowerKw = pricing.ResolveBasePowerKw(meter);
+        var contractedPowerKw = EnergyPricingService.ContractedPowerKw(basePowerKw);
+        var connectionPowerKw = EnergyPricingService.ConnectionPowerKw(basePowerKw);
+        var alertThresholdKw = Math.Round(contractedPowerKw * 0.9, 4);
+
+        double RegisterPower(MeterReading reading) => normalizedRegister == "export"
+            ? Math.Max(0, -reading.ActivePowerKw)
+            : Math.Max(0, reading.ActivePowerKw);
+
+        var latest = readings.LastOrDefault();
+        var currentPowerKw = latest is null ? 0 : RegisterPower(latest);
+        var peakReading = readings.MaxBy(RegisterPower);
+        var peakPowerKw = peakReading is null ? 0 : RegisterPower(peakReading);
+        var averagePowerKw = readings.Count == 0 ? 0 : readings.Average(RegisterPower);
+
+        // Daily maxima (local calendar day).
+        var dailyMaxima = readings
+            .GroupBy(x => DateOnly.FromDateTime(TimeZoneInfo.ConvertTimeFromUtc(x.TimestampUtc, WarsawTimeZone)))
+            .Select(g => new PmaxDailyMaximumDto(g.Key, Math.Round(g.Max(RegisterPower), 4)))
+            .OrderByDescending(x => x.Date)
+            .ToArray();
+        var utilizationPercent = dailyMaxima.Length == 0 || contractedPowerKw <= 0
+            ? 0
+            : Math.Round(dailyMaxima.Average(x => x.MaximumPowerKw) / contractedPowerKw * 100, 1);
+
+        // Hour x weekday distribution (Mon=0 .. Sun=6).
+        var distributionAccumulators = new Dictionary<(int Weekday, int Hour), (double Sum, double Max, int Count)>();
+        foreach (var reading in readings)
+        {
+            var local = TimeZoneInfo.ConvertTimeFromUtc(reading.TimestampUtc, WarsawTimeZone);
+            var weekday = ((int)local.DayOfWeek + 6) % 7;
+            var key = (weekday, local.Hour);
+            var power = RegisterPower(reading);
+            distributionAccumulators.TryGetValue(key, out var cell);
+            distributionAccumulators[key] = (cell.Sum + power, Math.Max(cell.Max, power), cell.Count + 1);
+        }
+
+        var distribution = distributionAccumulators
+            .Select(x => new PmaxDistributionCellDto(
+                x.Key.Weekday,
+                x.Key.Hour,
+                Math.Round(x.Value.Sum / x.Value.Count, 4),
+                Math.Round(x.Value.Max, 4),
+                x.Value.Count))
+            .OrderBy(x => x.Weekday).ThenBy(x => x.Hour)
+            .ToArray();
+
+        // Exceedance events (rising edges above a threshold).
+        var contractedEvents = FindExceedanceEvents(readings, RegisterPower, contractedPowerKw);
+        var connectionEvents = FindExceedanceEvents(readings, RegisterPower, connectionPowerKw);
+        var thresholdEvents = FindExceedanceEvents(readings, RegisterPower, alertThresholdKw);
+
+        // Estimated energy cost of the period (for bill-impact context).
+        var estimatedEnergyCostPln = 0d;
+        MeterReading? preceding = previous;
+        foreach (var reading in readings)
+        {
+            if (preceding is not null)
+            {
+                var importedKwh = Math.Max(0, reading.ActiveImportKwh - preceding.ActiveImportKwh);
+                var intervalMiddleUtc = preceding.TimestampUtc.AddTicks(
+                    (reading.TimestampUtc - preceding.TimestampUtc).Ticks / 2);
+                estimatedEnergyCostPln += importedKwh
+                    * pricing.ZoneRatePlnPerKwh(meter.Tariff, ResolveTariffZone(meter.Tariff, intervalMiddleUtc));
+            }
+
+            preceding = reading;
+        }
+
+        // Per-zone exceedance breakdown against contracted power.
+        var zoneNames = ZoneDisplayNames(meter.Tariff);
+        var zoneExceedances = readings
+            .GroupBy(x => ResolveTariffZone(meter.Tariff, x.TimestampUtc))
+            .Select(g =>
+            {
+                var zonePeak = g.Max(RegisterPower);
+                var exceedance = Math.Max(0, zonePeak - contractedPowerKw);
+                return new PmaxZoneExceedanceDto(
+                    g.Key,
+                    zoneNames.GetValueOrDefault(g.Key, g.Key),
+                    contractedPowerKw,
+                    Math.Round(zonePeak, 4),
+                    Math.Round(exceedance, 4),
+                    Math.Round(exceedance * pricing.ContractedPowerExceedancePenaltyPlnPerKw, 2));
+            })
+            .OrderByDescending(x => x.ExceedanceKw)
+            .ToArray();
+
+        var contractedPenalty = contractedEvents.Sum(e =>
+            Math.Max(0, e.PeakPowerKw - contractedPowerKw) * pricing.ContractedPowerExceedancePenaltyPlnPerKw);
+        var connectionPenalty = connectionEvents.Sum(e =>
+            Math.Max(0, e.PeakPowerKw - connectionPowerKw) * pricing.ConnectionPowerExceedancePenaltyPlnPerKw);
+        var additionalCostPln = Math.Round(contractedPenalty + connectionPenalty, 2);
+        var billImpactPercent = estimatedEnergyCostPln <= 0
+            ? 0
+            : Math.Round(additionalCostPln / estimatedEnergyCostPln * 100, 1);
+
+        var exceedanceCost = new PmaxExceedanceCostDto(
+            contractedEvents.Count,
+            connectionEvents.Count,
+            additionalCostPln,
+            Math.Round(estimatedEnergyCostPln, 2),
+            billImpactPercent,
+            zoneExceedances);
+
+        // Alerts (most recent events first).
+        var registerLabel = normalizedRegister == "export" ? "oddawania" : "poboru";
+        var alerts = new List<PmaxAlertDto>();
+        foreach (var e in connectionEvents)
+        {
+            alerts.Add(new PmaxAlertDto(
+                e.TimestampUtc,
+                "danger",
+                $"Przekroczono moc przyłącza {registerLabel}: {e.PeakPowerKw:0.0} kW (limit {connectionPowerKw:0.0} kW)"));
+        }
+
+        foreach (var e in contractedEvents)
+        {
+            alerts.Add(new PmaxAlertDto(
+                e.TimestampUtc,
+                "warning",
+                $"Przekroczono moc umowną {registerLabel}: {e.PeakPowerKw:0.0} kW (limit {contractedPowerKw:0.0} kW)"));
+        }
+
+        var trimmedAlerts = alerts
+            .OrderByDescending(x => x.TimestampUtc)
+            .Take(12)
+            .ToArray();
+
+        // Recommendations derived from the distribution and utilisation.
+        var recommendations = BuildRecommendations(
+            distribution,
+            thresholdEvents.Count,
+            alertThresholdKw,
+            utilizationPercent,
+            peakPowerKw,
+            connectionPowerKw,
+            registerLabel);
+
+        return Ok(new MeterInsightsDto(
+            meter.Id,
+            meter.SerialNumber,
+            meter.Name,
+            meter.Tariff,
+            normalizedRegister,
+            from,
+            to,
+            contractedPowerKw,
+            connectionPowerKw,
+            alertThresholdKw,
+            Math.Round(currentPowerKw, 4),
+            Math.Round(peakPowerKw, 4),
+            peakReading?.TimestampUtc,
+            Math.Round(averagePowerKw, 4),
+            utilizationPercent,
+            thresholdEvents.Count,
+            dailyMaxima,
+            distribution,
+            trimmedAlerts,
+            recommendations,
+            exceedanceCost));
+    }
+
+    private sealed record ExceedanceEvent(DateTime TimestampUtc, double PeakPowerKw);
+
+    private static List<ExceedanceEvent> FindExceedanceEvents(
+        IReadOnlyList<MeterReading> readings,
+        Func<MeterReading, double> powerSelector,
+        double threshold)
+    {
+        var events = new List<ExceedanceEvent>();
+        if (threshold <= 0)
+        {
+            return events;
+        }
+
+        var inEvent = false;
+        DateTime eventStart = default;
+        var eventPeak = 0d;
+        foreach (var reading in readings)
+        {
+            var power = powerSelector(reading);
+            if (power >= threshold)
+            {
+                if (!inEvent)
+                {
+                    inEvent = true;
+                    eventStart = reading.TimestampUtc;
+                    eventPeak = power;
+                }
+                else
+                {
+                    eventPeak = Math.Max(eventPeak, power);
+                }
+            }
+            else if (inEvent)
+            {
+                events.Add(new ExceedanceEvent(eventStart, Math.Round(eventPeak, 4)));
+                inEvent = false;
+            }
+        }
+
+        if (inEvent)
+        {
+            events.Add(new ExceedanceEvent(eventStart, Math.Round(eventPeak, 4)));
+        }
+
+        return events;
+    }
+
+    private static IReadOnlyList<string> BuildRecommendations(
+        IReadOnlyList<PmaxDistributionCellDto> distribution,
+        int thresholdExceedanceCount,
+        double alertThresholdKw,
+        double utilizationPercent,
+        double peakPowerKw,
+        double connectionPowerKw,
+        string registerLabel)
+    {
+        var recommendations = new List<string>();
+        if (distribution.Count > 0)
+        {
+            var peakHourGroup = distribution
+                .GroupBy(x => x.Hour)
+                .Select(g => new { Hour = g.Key, Average = g.Average(x => x.AveragePowerKw) })
+                .MaxBy(x => x.Average);
+            if (peakHourGroup is not null)
+            {
+                recommendations.Add(
+                    $"Najczęstsze szczyty {registerLabel} między {peakHourGroup.Hour:00}:00 a {(peakHourGroup.Hour + 1) % 24:00}:00 – rozważ przesunięcie pracy urządzeń poza ten czas.");
+            }
+        }
+
+        if (thresholdExceedanceCount > 0)
+        {
+            recommendations.Add(
+                $"W wybranym okresie {thresholdExceedanceCount}× przekroczono próg alertu {alertThresholdKw:0.0} kW.");
+        }
+
+        recommendations.Add(
+            $"Średnie wykorzystanie mocy umownej: {utilizationPercent:0.#}% – {(utilizationPercent > 85 ? "warto rozważyć zwiększenie mocy umownej." : "moc umowna z zapasem pokrywa zapotrzebowanie.")}");
+
+        if (peakPowerKw > connectionPowerKw)
+        {
+            recommendations.Add(
+                $"Szczyt {peakPowerKw:0.0} kW przekroczył moc przyłącza {connectionPowerKw:0.0} kW – ryzyko zadziałania zabezpieczeń.");
+        }
+
+        return recommendations;
+    }
+
+    private static Dictionary<string, string> ZoneDisplayNames(string tariff) =>
+        tariff.Trim().ToUpperInvariant() switch
+        {
+            "G11" or "C11" => new() { ["ALL_DAY"] = "Całodobowa" },
+            "G12" => new() { ["DAY"] = "Dzienna", ["NIGHT"] = "Nocna" },
+            _ => new() { ["PEAK"] = "Szczytowa", ["OFF_PEAK"] = "Pozaszczytowa i weekend" }
+        };
 
     private static Dictionary<string, TariffZoneAccumulator> CreateTariffZones(string tariff) =>
         tariff switch
@@ -423,7 +772,7 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
 
     private static string ResolveTariffZone(string tariff, DateTime timestampUtc)
     {
-        if (tariff == "G11")
+        if (tariff is "G11" or "C11")
         {
             return "ALL_DAY";
         }
@@ -484,8 +833,12 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
 
         public double ImportedKwh { get; set; }
         public double ExportedKwh { get; set; }
+        public double GeneratedKwh { get; set; }
+        public double SelfConsumedKwh { get; set; }
+        public double NetCostPln { get; set; }
         public double MaximumImportPowerKw { get; private set; }
         public double MaximumExportPowerKw { get; private set; }
+        public double MaximumGenerationPowerKw { get; private set; }
         public int SampleCount { get; private set; }
         public double AveragePowerKw => SampleCount == 0 ? 0 : powerSum / SampleCount;
         public double AverageAbsolutePowerKw =>
@@ -499,6 +852,9 @@ public sealed class MetersController(AppDbContext dbContext) : ControllerBase
             MaximumExportPowerKw = Math.Max(MaximumExportPowerKw, -powerKw);
             SampleCount++;
         }
+
+        public void AddGenerationPower(double generationPowerKw) =>
+            MaximumGenerationPowerKw = Math.Max(MaximumGenerationPowerKw, generationPowerKw);
     }
 
     private static DateTime NormalizeUtc(DateTime value) =>

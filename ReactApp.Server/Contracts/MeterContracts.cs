@@ -118,10 +118,14 @@ public sealed record MeterAnalyticsBucketDto(
     DateTime EndUtc,
     double ImportedKwh,
     double ExportedKwh,
+    double GeneratedKwh,
+    double SelfConsumedKwh,
     double AveragePowerKw,
     double AverageAbsolutePowerKw,
     double MaximumImportPowerKw,
     double MaximumExportPowerKw,
+    double MaximumGenerationPowerKw,
+    double NetCostPln,
     int SampleCount);
 
 public sealed record MeterAnalyticsDto(
@@ -130,17 +134,26 @@ public sealed record MeterAnalyticsDto(
     string Name,
     string Tariff,
     double? ReferencePowerKw,
+    double ContractedPowerKw,
+    double ConnectionPowerKw,
     DateTime FromUtc,
     DateTime ToUtc,
     string Bucket,
     double ImportedKwh,
     double ExportedKwh,
+    double GeneratedKwh,
+    double SelfConsumedKwh,
+    double SelfConsumptionRatio,
+    double NetCostPln,
     double? LatestPowerKw,
+    double? LatestGenerationPowerKw,
     DateTime? LatestReadingAtUtc,
     double MaximumImportPowerKw,
     DateTime? MaximumImportPowerAtUtc,
     double MaximumExportPowerKw,
     DateTime? MaximumExportPowerAtUtc,
+    double MaximumGenerationPowerKw,
+    DateTime? MaximumGenerationPowerAtUtc,
     double AverageAbsolutePowerKw,
     IReadOnlyList<MeterAnalyticsBucketDto> Buckets);
 
@@ -148,7 +161,9 @@ public sealed record TariffZoneDto(
     string Code,
     string Name,
     double EnergyKwh,
-    double Percentage);
+    double Percentage,
+    double RatePlnPerKwh,
+    double CostPln);
 
 public sealed record TariffSimulationDto(
     Guid MeterId,
@@ -157,7 +172,61 @@ public sealed record TariffSimulationDto(
     DateTime FromUtc,
     DateTime ToUtc,
     double TotalImportedKwh,
+    double TotalExportedKwh,
+    double EnergyCostPln,
+    double ExportCompensationPln,
+    double NetCostPln,
     IReadOnlyList<TariffZoneDto> Zones);
+
+public sealed record PmaxDistributionCellDto(
+    int Weekday,
+    int Hour,
+    double AveragePowerKw,
+    double MaximumPowerKw,
+    int SampleCount);
+
+public sealed record PmaxDailyMaximumDto(DateOnly Date, double MaximumPowerKw);
+
+public sealed record PmaxAlertDto(DateTime TimestampUtc, string Severity, string Message);
+
+public sealed record PmaxZoneExceedanceDto(
+    string Code,
+    string Name,
+    double ContractedPowerKw,
+    double PeakPowerKw,
+    double ExceedanceKw,
+    double CostPln);
+
+public sealed record PmaxExceedanceCostDto(
+    int ContractedExceedanceCount,
+    int ConnectionExceedanceCount,
+    double AdditionalCostPln,
+    double EstimatedEnergyCostPln,
+    double BillImpactPercent,
+    IReadOnlyList<PmaxZoneExceedanceDto> Zones);
+
+public sealed record MeterInsightsDto(
+    Guid MeterId,
+    string SerialNo,
+    string Name,
+    string Tariff,
+    string Register,
+    DateTime FromUtc,
+    DateTime ToUtc,
+    double ContractedPowerKw,
+    double ConnectionPowerKw,
+    double AlertThresholdKw,
+    double CurrentPowerKw,
+    double PeakPowerKw,
+    DateTime? PeakPowerAtUtc,
+    double AveragePowerKw,
+    double UtilizationPercent,
+    int ThresholdExceedanceCount,
+    IReadOnlyList<PmaxDailyMaximumDto> DailyMaxima,
+    IReadOnlyList<PmaxDistributionCellDto> Distribution,
+    IReadOnlyList<PmaxAlertDto> Alerts,
+    IReadOnlyList<string> Recommendations,
+    PmaxExceedanceCostDto ExceedanceCost);
 
 public sealed record ReadingIngestionResult(int Accepted, int Duplicates, DateTime? LastSeenAtUtc);
 
