@@ -86,7 +86,37 @@ public sealed class MeterSimulationWorker(
             "Instalacja dachowa",
             52.0895,
             20.8036,
-            SimulationKind.Photovoltaic)
+            SimulationKind.Photovoltaic),
+        new(
+            "SIM-G11-002",
+            "Mieszkanie z klimatyzacją",
+            "G11",
+            3.0,
+            "Łódź",
+            "Budynek wielorodzinny",
+            51.7592,
+            19.4560,
+            SimulationKind.Residential),
+        new(
+            "SIM-C11-002",
+            "Stacja ładowania EV",
+            "C11",
+            22,
+            "Warszawa",
+            "Punkt ładowania",
+            52.2600,
+            21.0400,
+            SimulationKind.Business),
+        new(
+            "SIM-A23-002",
+            "Chłodnia magazynowa",
+            "A23",
+            55,
+            "Sochaczew",
+            "Magazyn chłodniczy",
+            52.2294,
+            20.2380,
+            SimulationKind.Industrial)
     ];
 
     private readonly SimulationOptions simulationOptions = options.Value;
