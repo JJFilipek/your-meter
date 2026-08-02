@@ -561,8 +561,15 @@ public sealed class MetersController(AppDbContext dbContext, EnergyPricingServic
             preceding = reading;
         }
 
-        // Per-zone exceedance breakdown against contracted power.
+        // Per-zone exceedance breakdown against contracted power. Costs are summed over the
+        // contracted exceedance events falling in each zone, so the zone rows reconcile with
+        // the overall contracted penalty.
         var zoneNames = ZoneDisplayNames(meter.Tariff);
+        var contractedPenaltyByZone = contractedEvents
+            .GroupBy(e => ResolveTariffZone(meter.Tariff, e.TimestampUtc))
+            .ToDictionary(
+                g => g.Key,
+                g => g.Sum(e => Math.Max(0, e.PeakPowerKw - contractedPowerKw) * pricing.ContractedPowerExceedancePenaltyPlnPerKw));
         var zoneExceedances = readings
             .GroupBy(x => ResolveTariffZone(meter.Tariff, x.TimestampUtc))
             .Select(g =>
@@ -575,7 +582,7 @@ public sealed class MetersController(AppDbContext dbContext, EnergyPricingServic
                     contractedPowerKw,
                     Math.Round(zonePeak, 4),
                     Math.Round(exceedance, 4),
-                    Math.Round(exceedance * pricing.ContractedPowerExceedancePenaltyPlnPerKw, 2));
+                    Math.Round(contractedPenaltyByZone.GetValueOrDefault(g.Key, 0), 2));
             })
             .OrderByDescending(x => x.ExceedanceKw)
             .ToArray();
