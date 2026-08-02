@@ -4,6 +4,7 @@ import { Alert, Container, Nav, Navbar, Image, NavDropdown } from 'react-bootstr
 import * as Fa from 'react-icons/fa'
 import { useAuth } from '../../auth'
 import { NotificationsMenu } from './NotificationsMenu'
+import { NotificationToasts } from './NotificationToasts'
 
 const navItems = [
     { href: '/home', icon: Fa.FaHome, label: 'Strona główna' },
@@ -82,6 +83,7 @@ export function Layout({ children }: { children: ReactNode }) {
             )}
 
             <div className="app-content d-flex flex-column">
+                <NotificationToasts />
                 <Navbar className="top-navbar px-3">
                     <Container fluid className="justify-content-between px-0">
                         <div className="d-flex align-items-center gap-2">

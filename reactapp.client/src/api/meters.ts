@@ -287,6 +287,13 @@ export const getMeterInsights = (
     return apiRequest<MeterInsights>(`/api/meters/${meterId}/insights?${query}`, { signal })
 }
 
+export const setMeterAlertThreshold = (meterId: string, thresholdKw: number | null) =>
+    apiRequest<Meter>(`/api/meters/${meterId}/alert-threshold`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ thresholdKw }),
+    })
+
 export const getSimulators = (signal?: AbortSignal) =>
     apiRequest<Simulator[]>('/api/simulators', { signal })
 

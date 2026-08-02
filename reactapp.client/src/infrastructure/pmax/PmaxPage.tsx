@@ -12,8 +12,9 @@ import {
     Tooltip,
 } from 'chart.js'
 import * as Fa from 'react-icons/fa'
-import { getMeterAnalytics, getMeterInsights, type MeterAnalytics, type MeterInsights } from '../../api/meters'
-import { useMeterSelection } from '../../root/app-context'
+import { getMeterAnalytics, getMeterInsights, setMeterAlertThreshold, type MeterAnalytics, type MeterInsights } from '../../api/meters'
+import { useMeterSelection, useNotifications } from '../../root/app-context'
+import { useAuth } from '../../auth'
 import { AnalyticsSkeleton } from '../../root/layout/AnalyticsSkeleton'
 import { plTooltip } from '../../root/chart-format'
 
@@ -36,6 +37,8 @@ const powerColor = (value: number, contracted: number, connection: number) => {
 
 export function PmaxPage() {
     const { meters, selectedMeterId: selectedMeter, setSelectedMeterId: setSelectedMeter } = useMeterSelection()
+    const { refresh: refreshNotifications } = useNotifications()
+    const { user } = useAuth()
     const [register, setRegister] = useState<'import' | 'export'>('import')
     const [dateFrom, setDateFrom] = useState(dateInput(new Date(Date.now() - 7 * 864e5)))
     const [dateTo, setDateTo] = useState(dateInput(new Date()))
@@ -43,6 +46,8 @@ export function PmaxPage() {
     const [insights, setInsights] = useState<MeterInsights | null>(null)
     const [customThreshold, setCustomThreshold] = useState<number | null>(null)
     const [editingThreshold, setEditingThreshold] = useState(false)
+    const [savedToken, setSavedToken] = useState(0)
+    const [saving, setSaving] = useState(false)
     const [showCostDetails, setShowCostDetails] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -86,11 +91,28 @@ export function PmaxPage() {
                 if (!controller.signal.aborted) setIsLoading(false)
             })
         return () => controller.abort()
-    }, [dateFrom, dateTo, selectedMeter, register])
+    }, [dateFrom, dateTo, selectedMeter, register, savedToken])
 
     const alertThreshold = customThreshold ?? insights?.alertThresholdKw ?? 0
     const contracted = insights?.contractedPowerKw ?? 0
     const connection = insights?.connectionPowerKw ?? 0
+    const canEdit = !user?.isReadOnly
+
+    const saveThreshold = async (value: number | null) => {
+        if (!selectedMeter) return
+        setSaving(true)
+        try {
+            await setMeterAlertThreshold(selectedMeter, value)
+            setCustomThreshold(null)
+            setEditingThreshold(false)
+            setSavedToken((token) => token + 1)
+            refreshNotifications()
+        } catch (saveError) {
+            setError(saveError instanceof Error ? saveError.message : 'Nie udało się zapisać progu alertu.')
+        } finally {
+            setSaving(false)
+        }
+    }
 
     const powerSeries = useMemo(
         () => analytics?.buckets.map((bucket) => (register === 'export' ? bucket.maximumExportPowerKw : bucket.maximumImportPowerKw)) ?? [],
@@ -201,9 +223,15 @@ export function PmaxPage() {
                                     </Button>
                                 </div>
                                 {editingThreshold && (
-                                    <div className="d-flex align-items-center gap-2 mb-2">
-                                        <Form.Range min={1} max={Math.ceil(connection)} step={0.1} value={alertThreshold} onChange={(event) => setCustomThreshold(Number(event.target.value))} />
+                                    <div className="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                                        <Form.Range style={{ maxWidth: 180 }} min={1} max={Math.ceil(connection) || 10} step={0.1} value={alertThreshold} onChange={(event) => setCustomThreshold(Number(event.target.value))} />
                                         <span className="text-nowrap small">{kw.format(alertThreshold)} kW → {customExceedances}× w oknie</span>
+                                        {canEdit && (
+                                            <>
+                                                <Button size="sm" variant="primary" disabled={saving} onClick={() => void saveThreshold(alertThreshold)}>Zapisz</Button>
+                                                <Button size="sm" variant="outline-secondary" disabled={saving} onClick={() => void saveThreshold(null)}>Domyślny</Button>
+                                            </>
+                                        )}
                                     </div>
                                 )}
                                 <Card.Title className="text-uppercase small fw-bold mb-2">Moc chwilowa względem limitów</Card.Title>

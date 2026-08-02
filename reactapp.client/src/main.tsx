@@ -9,6 +9,7 @@ import "./root/layout/dark-theme.css";
 import { Layout } from "./root/layout/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { HelpPage } from "./pages/HelpPage";
+import { NotificationsPage } from "./pages/NotificationsPage";
 import { AuthProvider, useAuth } from "./auth";
 import { AppStateProvider } from "./root/app-context";
 import HomePage from "./home/HomePage";
@@ -60,6 +61,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
                 <Route path="/login"><LoginPage /></Route>
                 <Route path="/home"><RequireAuth><Layout><HomePage /></Layout></RequireAuth></Route>
                 <Route path="/help"><RequireAuth><Layout><HelpPage /></Layout></RequireAuth></Route>
+                <Route path="/notifications"><RequireAuth><Layout><NotificationsPage /></Layout></RequireAuth></Route>
                 <Route path="/infrastructure/meter/list"><RequireAuth><Layout><Meters /></Layout></RequireAuth></Route>
                 <Route path="/map"><RequireAuth><Layout><MapPage /></Layout></RequireAuth></Route>
                 <Route path="/simulators"><RequireAuth><Layout><MeterLabPage /></Layout></RequireAuth></Route>

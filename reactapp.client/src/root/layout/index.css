@@ -541,8 +541,40 @@ footer small {
     background: transparent;
 }
 
-.notif-item.notif-read {
+.notif-item.notif-read,
+.notif-row.notif-read {
     opacity: 0.55;
+}
+
+.notif-type {
+    font-size: 0.62rem;
+    font-weight: 600;
+}
+
+.notif-dismiss {
+    border: 0;
+    background: transparent;
+    color: var(--text-secondary, #9e9e9e);
+    line-height: 1;
+    padding: 2px 4px;
+    flex-shrink: 0;
+}
+
+.notif-dismiss:hover {
+    color: #d90429;
+}
+
+.notif-row {
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.notif-row:hover {
+    background: rgba(var(--bs-primary-rgb), 0.05);
+}
+
+.notif-row:last-child {
+    border-bottom: 0 !important;
 }
 
 /* On small screens the sidebar is off-canvas, so ignore the desktop collapse. */

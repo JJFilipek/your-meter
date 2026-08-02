@@ -19,4 +19,5 @@ export type Meter = {
     latestActiveImportKwh: number | null;
     latestActiveExportKwh: number | null;
     latestActivePowerKw: number | null;
+    alertThresholdKw: number | null;
 };
