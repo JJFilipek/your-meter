@@ -41,6 +41,9 @@ const ranges: Record<RangeKey, { label: string; days: number; bucket: MeterAnaly
     year: { label: 'Rok', days: 365, bucket: 'month', unit: { month: 'short', year: '2-digit' } },
 }
 
+const currentYear = new Date().getFullYear()
+const years = Array.from({ length: 6 }, (_, index) => String(currentYear - index))
+
 const chartTypes = [
     'Wykres energii',
     'Wykres generacji',
@@ -70,6 +73,9 @@ export function ChartsPage() {
     const [meters, setMeters] = useState<Meter[]>([])
     const [selectedMeter, setSelectedMeter] = useState('')
     const [range, setRange] = useState<RangeKey>('year')
+    const [useYearRange, setUseYearRange] = useState(false)
+    const [yearFrom, setYearFrom] = useState(String(currentYear - 1))
+    const [yearTo, setYearTo] = useState(String(currentYear))
     const [selectedChart, setSelectedChart] = useState<ChartType>('Wykres energii')
     const [energyType, setEnergyType] = useState<'import' | 'export'>('import')
     const [targetTariff, setTargetTariff] = useState<TariffCode | ''>('')
@@ -94,11 +100,19 @@ export function ChartsPage() {
     }, [])
 
     const { fromIso, toIso, bucket } = useMemo(() => {
+        if (useYearRange) {
+            const [low, high] = [Number(yearFrom), Number(yearTo)].sort((a, b) => a - b)
+            const from = new Date(Date.UTC(low, 0, 1))
+            const now = new Date()
+            const yearEnd = new Date(Date.UTC(high + 1, 0, 1))
+            const to = yearEnd < now ? yearEnd : now
+            return { fromIso: from.toISOString(), toIso: to.toISOString(), bucket: 'month' as const }
+        }
         const config = ranges[range]
         const to = new Date()
         const from = new Date(to.getTime() - config.days * 24 * 60 * 60 * 1000)
         return { fromIso: from.toISOString(), toIso: to.toISOString(), bucket: config.bucket }
-    }, [range])
+    }, [range, useYearRange, yearFrom, yearTo])
 
     useEffect(() => {
         if (!selectedMeter) {
@@ -146,9 +160,10 @@ export function ChartsPage() {
     }, [selectedMeter, fromIso, toIso, targetTariff])
 
     const labels = useMemo(() => {
-        const formatter = new Intl.DateTimeFormat('pl-PL', ranges[range].unit)
+        const unit = useYearRange ? { month: 'short', year: '2-digit' } as const : ranges[range].unit
+        const formatter = new Intl.DateTimeFormat('pl-PL', unit)
         return analytics?.buckets.map((b) => formatter.format(new Date(b.startUtc))) ?? []
-    }, [analytics, range])
+    }, [analytics, range, useYearRange])
 
     const { chartNode, chartCaption, seriesForStats, statsUnit } = useMemo(() => {
         const buckets = analytics?.buckets ?? []
@@ -300,17 +315,29 @@ export function ChartsPage() {
             <div className="border rounded px-3 py-2 d-flex align-items-center justify-content-between flex-wrap gap-3 mb-3">
                 <ButtonGroup size="sm">
                     {(Object.keys(ranges) as RangeKey[]).map((key) => (
-                        <Button key={key} variant={range === key ? 'primary' : 'outline-secondary'} onClick={() => setRange(key)}>
+                        <Button key={key} variant={!useYearRange && range === key ? 'primary' : 'outline-secondary'} onClick={() => { setUseYearRange(false); setRange(key) }}>
                             {ranges[key].label}
                         </Button>
                     ))}
                 </ButtonGroup>
-                <div className="d-flex align-items-center gap-2">
-                    <span className="text-muted small">Energia</span>
-                    <Form.Select size="sm" style={{ minWidth: 150 }} value={energyType} onChange={(event) => setEnergyType(event.target.value as 'import' | 'export')}>
-                        <option value="import">Pobrana A+</option>
-                        <option value="export">Oddana A-</option>
-                    </Form.Select>
+                <div className="d-flex align-items-center gap-3 flex-wrap">
+                    <div className="d-flex align-items-center gap-1">
+                        <span className="text-muted small">Rok</span>
+                        <Form.Select size="sm" style={{ minWidth: 90 }} value={yearFrom} onChange={(event) => { setUseYearRange(true); setYearFrom(event.target.value) }}>
+                            {years.map((year) => <option key={year} value={year}>{year}</option>)}
+                        </Form.Select>
+                        <span className="mx-1">→</span>
+                        <Form.Select size="sm" style={{ minWidth: 90 }} value={yearTo} onChange={(event) => { setUseYearRange(true); setYearTo(event.target.value) }}>
+                            {years.map((year) => <option key={year} value={year}>{year}</option>)}
+                        </Form.Select>
+                    </div>
+                    <div className="d-flex align-items-center gap-2">
+                        <span className="text-muted small">Energia</span>
+                        <Form.Select size="sm" style={{ minWidth: 150 }} value={energyType} onChange={(event) => setEnergyType(event.target.value as 'import' | 'export')}>
+                            <option value="import">Pobrana A+</option>
+                            <option value="export">Oddana A-</option>
+                        </Form.Select>
+                    </div>
                 </div>
             </div>
 
@@ -334,15 +361,15 @@ export function ChartsPage() {
                                 <div className="text-uppercase small fw-bold mb-3">Statystyki</div>
                                 {stats && (
                                     <div className="d-flex flex-column gap-3 flex-grow-1">
-                                        <StatRow icon={<Fa.FaChartBar color={accent} />} label="Średnia na przedział" value={formatStat(stats.average)} />
+                                        <StatRow icon={<Fa.FaChartBar color={accent} />} label="Twoja średnia" value={formatStat(stats.average)} />
                                         <StatRow icon={<Fa.FaLayerGroup color={green} />} label="Liczba przedziałów" value={String(seriesForStats.length)} />
                                         <StatRow icon={<Fa.FaArrowUp color="#888" />} label="Maksimum" value={formatStat(stats.max)} sub={stats.maxAt} />
                                         <StatRow icon={<Fa.FaArrowDown color={greenLight} />} label="Minimum" value={formatStat(stats.min)} sub={stats.minAt} />
-                                        <StatRow icon={<Fa.FaWaveSquare color="#17a2b8" />} label="Zmienność" value={`±${stats.variability.toFixed(1)}%`} />
+                                        <StatRow icon={<Fa.FaWaveSquare color="#17a2b8" />} label="Zmienność zużycia" value={`±${stats.variability.toFixed(1)}%`} />
                                     </div>
                                 )}
                                 <div className="mt-auto text-center border-top pt-3">
-                                    <span className="fw-semibold">Suma w okresie:</span>{' '}
+                                    <span className="fw-semibold">{statsUnit === 'kWh' ? 'Energia całkowita:' : 'Suma w okresie:'}</span>{' '}
                                     <span className="text-success fw-bold">{stats ? formatStat(stats.total) : '-'}</span>
                                 </div>
                             </Card.Body></Card>
