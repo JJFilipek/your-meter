@@ -66,7 +66,27 @@ public sealed class MeterSimulationWorker(
             "Hala produkcyjna",
             52.2108,
             20.7972,
-            SimulationKind.Industrial)
+            SimulationKind.Industrial),
+        new(
+            "SIM-G12W-002",
+            "Farma PV Mazowsze",
+            "G12W",
+            9.5,
+            "Grodzisk Mazowiecki",
+            "Farma fotowoltaiczna",
+            52.1103,
+            20.6339,
+            SimulationKind.Photovoltaic),
+        new(
+            "SIM-G12W-003",
+            "Magazyn z instalacją PV",
+            "G12W",
+            6.2,
+            "Nadarzyn",
+            "Instalacja dachowa",
+            52.0895,
+            20.8036,
+            SimulationKind.Photovoltaic)
     ];
 
     private readonly SimulationOptions simulationOptions = options.Value;
